@@ -1,0 +1,34 @@
+[project]
+name = "fish-audio-sdk"
+version = "0.1.0"
+description = "fish.audio platform api sdk"
+authors = [
+    {name = "abersheeran", email = "me@abersheeran.com"},
+]
+dependencies = [
+    "httpx>=0.27.2",
+    "ormsgpack>=1.5.0",
+    "pydantic>=2.9.1",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+package-type = "library"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "python-dotenv>=1.0.1",
+]
+
+# 添加以下配置
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
