@@ -1,21 +1,29 @@
-from typing import Literal
+from typing import Generator, Literal
 
 import ormsgpack
 
 from .schemas import ASRRequest, ASRResponse, ModelEntity, PaginatedResponse, TTSRequest
-from .io import RemoteCall, convert, G, Request
+from .io import RemoteCall, convert, convert_stream, G, GStream, Request
 
 
 class Session(RemoteCall):
-    @convert
-    def tts(self, request: TTSRequest) -> G[bytes]:
-        response = yield Request(
+    @convert_stream
+    def tts(self, request: TTSRequest) -> GStream:
+        yield Request(
             method="POST",
             url="/v1/tts",
             headers={"Content-Type": "application/msgpack"},
             content=ormsgpack.packb(request, option=ormsgpack.OPT_SERIALIZE_PYDANTIC),
         )
-        return response.content
+
+        def g() -> Generator[bytes, bytes, None]:
+            chunk = yield b""
+            while True:
+                chunk = yield chunk
+                if chunk == b"":
+                    break
+
+        return g()
 
     @convert
     def asr(self, request: ASRRequest) -> G[ASRResponse]:
