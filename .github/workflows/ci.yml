@@ -1,0 +1,54 @@
+name: CI/CD
+
+on: ["push", "pull_request"]
+
+jobs:
+  tests:
+    name: "Python ${{ matrix.python-version }} ${{ matrix.os }}"
+    runs-on: "${{ matrix.os }}"
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        os: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pdm-project/setup-pdm@v4
+        name: Setup Python and PDM
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+          version: 2
+
+      - name: Install dependencies
+        run: |
+          pdm sync -v -dG dev
+
+      - name: Tests
+        run: pdm run pytest tests -o log_cli=true -o log_cli_level=DEBUG
+
+  publish:
+    needs: tests
+    if: startsWith(github.ref, 'refs/tags/')
+
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pdm-project/setup-pdm@v4
+        name: Setup Python and PDM
+        with:
+          python-version: "3.10"
+          architecture: x64
+          version: 2.10.4
+
+      - name: Build package distributions
+        run: |
+          pdm build
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
