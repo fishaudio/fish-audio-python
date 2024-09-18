@@ -1,6 +1,6 @@
 # Fish Audio Python SDK
 
-Provides convenient Python program inheritance for https://docs.fish.audio.
+To provide convenient Python program integration for https://docs.fish.audio.
 
 ## Install
 
