@@ -30,12 +30,20 @@ class TTSRequest(BaseModel):
 class ASRRequest(BaseModel):
     audio: bytes
     language: str | None = None
+    ignore_timestamps: bool | None = None
+
+
+class ASRSegment(BaseModel):
+    text: str
+    start: float
+    end: float
 
 
 class ASRResponse(BaseModel):
     text: str
     # Duration in milliseconds
     duration: float
+    segments: list[ASRSegment]
 
 
 class SampleEntity(BaseModel):

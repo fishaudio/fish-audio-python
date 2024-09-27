@@ -33,7 +33,7 @@ class Session(RemoteCall):
             headers={"Content-Type": "application/msgpack"},
             content=ormsgpack.packb(request, option=ormsgpack.OPT_SERIALIZE_PYDANTIC),
         )
-        return ASRResponse(**response.json())
+        return ASRResponse.model_validate(response.json())
 
     @convert
     def list_models(
