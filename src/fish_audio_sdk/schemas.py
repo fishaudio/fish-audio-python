@@ -1,5 +1,6 @@
 import datetime
-from typing import Annotated, Literal, Generic, TypeVar
+import decimal
+from typing import Annotated, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field, conint
 
@@ -84,3 +85,22 @@ class ModelEntity(BaseModel):
     marked: bool = False
 
     author: AuthorEntity
+
+
+class APICreditEntity(BaseModel):
+    _id: str
+    user_id: str
+    credit: decimal.Decimal
+    created_at: str
+    updated_at: str
+
+
+class PackageEntity(BaseModel):
+    _id: str
+    user_id: str
+    type: str
+    total: int
+    balance: int
+    created_at: str
+    updated_at: str
+    finished_at: str

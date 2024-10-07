@@ -2,8 +2,16 @@ from typing import Generator, Literal
 
 import ormsgpack
 
-from .schemas import ASRRequest, ASRResponse, ModelEntity, PaginatedResponse, TTSRequest
-from .io import RemoteCall, convert, convert_stream, G, GStream, Request
+from .io import G, GStream, RemoteCall, Request, convert, convert_stream
+from .schemas import (
+    APICreditEntity,
+    ASRRequest,
+    ASRResponse,
+    ModelEntity,
+    PackageEntity,
+    PaginatedResponse,
+    TTSRequest,
+)
 
 
 class Session(RemoteCall):
@@ -139,6 +147,16 @@ class Session(RemoteCall):
             ),
             files=files,
         )
+
+    @convert
+    def get_api_credit(this) -> G[APICreditEntity]:
+        response = yield Request(method="GET", url="/wallet/self/api-credit")
+        return APICreditEntity.model_validate(response.json())
+
+    @convert
+    def get_package(this) -> G[PackageEntity]:
+        response = yield Request(method="GET", url="/wallet/self/package")
+        return PackageEntity.model_validate(response.json())
 
 
 filter_none = lambda d: {k: v for k, v in d.items() if v is not None}

@@ -1,15 +1,16 @@
 import dataclasses
 import typing
+from http.client import responses as http_responses
 from typing import (
     Any,
     AsyncGenerator,
     Awaitable,
     Callable,
-    TypeVar,
-    Generator,
-    ParamSpec,
-    Generic,
     Concatenate,
+    Generator,
+    Generic,
+    ParamSpec,
+    TypeVar,
 )
 
 import httpx
@@ -63,8 +64,14 @@ class RemoteCall:
         if not resp.is_success:
             try:
                 raise HttpCodeErr(**resp.json())
+            except httpx.ResponseNotRead:
+                raise HttpCodeErr(
+                    status=resp.status_code, message=http_responses[resp.status_code]
+                )
             except TypeError:
-                raise HttpCodeErr(status=resp.status_code, message=resp.json()["detail"])
+                raise HttpCodeErr(
+                    status=resp.status_code, message=resp.json()["detail"]
+                )
 
 
 P = ParamSpec("P")
