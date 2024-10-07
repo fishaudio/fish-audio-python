@@ -1,4 +1,7 @@
-from fish_audio_sdk import Session, HttpCodeErr, TTSRequest, ASRRequest
+import pytest
+
+from fish_audio_sdk import ASRRequest, HttpCodeErr, Session, TTSRequest
+from fish_audio_sdk.schemas import APICreditEntity, PackageEntity
 
 
 def test_tts(session: Session):
@@ -47,7 +50,27 @@ def test_get_model(session: Session):
 
 
 def test_get_model_not_found(session: Session):
-    try:
+    with pytest.raises(HttpCodeErr) as exc_info:
         session.get_model(model_id="123")
-    except HttpCodeErr as e:
-        assert e.status == 404
+    assert exc_info.value.status == 404
+
+
+def test_invalid_token(session: Session):
+    session._apikey = "invalid"
+    session.init_async_client()
+    session.init_sync_client()
+
+    with pytest.raises(HttpCodeErr) as exc_info:
+        test_tts(session)
+
+    assert exc_info.value.status in [401, 402]
+
+
+def test_get_api_credit(session: Session):
+    res = session.get_api_credit()
+    assert isinstance(res, APICreditEntity)
+
+
+def test_get_package(session: Session):
+    res = session.get_package()
+    assert isinstance(res, PackageEntity)
