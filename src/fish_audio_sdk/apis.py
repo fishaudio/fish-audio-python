@@ -90,11 +90,17 @@ class Session(RemoteCall):
         title: str,
         description: str | None = None,
         cover_image: bytes | None = None,
-        train_model: Literal["fast"] = "fast",
+        train_mode: Literal["fast"] = "fast",
         voices: list[bytes],
-        texts: list[str],
-        tags: list[str] = [],
+        texts: list[str] | None = None,
+        tags: list[str] | None = None,
     ) -> G[ModelEntity]:
+        if texts is None:
+            texts = []
+
+        if tags is None:
+            tags = []
+
         files = [("voices", voice) for voice in voices]
         if cover_image is not None:
             files.append(("cover_image", cover_image))
@@ -107,7 +113,7 @@ class Session(RemoteCall):
                     "type": type,
                     "title": title,
                     "description": description,
-                    "train_model": train_model,
+                    "train_mode": train_mode,
                     "texts": texts,
                     "tags": tags,
                 }
