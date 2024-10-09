@@ -94,6 +94,7 @@ class Session(RemoteCall):
         voices: list[bytes],
         texts: list[str] | None = None,
         tags: list[str] | None = None,
+        enhance_audio_quality: bool = True,
     ) -> G[ModelEntity]:
         if texts is None:
             texts = []
@@ -116,6 +117,7 @@ class Session(RemoteCall):
                     "train_mode": train_mode,
                     "texts": texts,
                     "tags": tags,
+                    "enhance_audio_quality": enhance_audio_quality,
                 }
             ),
             files=files,
