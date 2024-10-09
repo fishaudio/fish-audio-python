@@ -1,6 +1,6 @@
 [project]
 name = "fish-audio-sdk"
-version = "2024.10.06"
+version = "2024.10.09"
 description = "fish.audio platform api sdk"
 authors = [
     {name = "abersheeran", email = "me@abersheeran.com"},
