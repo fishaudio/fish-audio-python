@@ -1,5 +1,5 @@
 from .apis import Session
 from .exceptions import HttpCodeErr
-from .schemas import ASRRequest, TTSRequest
+from .schemas import ASRRequest, TTSRequest, ReferenceAudio
 
-__all__ = ["Session", "HttpCodeErr", "TTSRequest", "ASRRequest"]
+__all__ = ["Session", "HttpCodeErr", "ReferenceAudio", "TTSRequest", "ASRRequest"]
