@@ -10,3 +10,9 @@ class HttpCodeErr(Exception):
         self.status = status
         self.message = message
         super().__init__(f"{status} {message}")
+
+
+class WebSocketErr(Exception):
+    """
+    {"event": "finish", "reason": "error"} or WebSocketDisconnect
+    """

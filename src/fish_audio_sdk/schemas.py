@@ -104,3 +104,17 @@ class PackageEntity(BaseModel):
     created_at: str
     updated_at: str
     finished_at: str
+
+
+class StartEvent(BaseModel):
+    event: Literal["start"] = "start"
+    request: TTSRequest
+
+
+class TextEvent(BaseModel):
+    event: Literal["text"] = "text"
+    text: str
+
+
+class CloseEvent(BaseModel):
+    event: Literal["stop"] = "stop"
