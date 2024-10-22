@@ -1,6 +1,6 @@
 [project]
 name = "fish-audio-sdk"
-version = "2024.10.15"
+version = "2024.10.22"
 description = "fish.audio platform api sdk"
 authors = [
     {name = "abersheeran", email = "me@abersheeran.com"},
@@ -19,7 +19,6 @@ license = {text = "MIT"}
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-
 [tool.pdm]
 package-type = "library"
 
@@ -30,6 +29,5 @@ dev = [
     "python-dotenv>=1.0.1",
 ]
 
-# 添加以下配置
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
