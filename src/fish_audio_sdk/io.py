@@ -35,12 +35,14 @@ class RemoteCall:
         self._async_client = httpx.AsyncClient(
             base_url=self._base_url,
             headers={"Authorization": f"Bearer {self._apikey}"},
+            timeout=None,
         )
 
     def init_sync_client(self):
         self._sync_client = httpx.Client(
             base_url=self._base_url,
             headers={"Authorization": f"Bearer {self._apikey}"},
+            timeout=None,
         )
 
     async def __aenter__(self):
