@@ -18,6 +18,14 @@ from fish_audio_sdk import Session
 session = Session("your_api_key")
 ```
 
+Sometimes, you may need to change our endpoint to another address. You can use
+
+```python
+from fish_audio_sdk import Session
+
+session = Session("your_api_key", base_url="https://your-proxy-domain")
+```
+
 ### Text to speech
 
 ```python
