@@ -17,6 +17,11 @@ class ReferenceAudio(BaseModel):
     text: str
 
 
+class Prosody(BaseModel):
+    speed: float = 1.0
+    volume: float = 0.0
+
+
 class TTSRequest(BaseModel):
     text: str
     chunk_length: Annotated[int, conint(ge=100, le=300, strict=True)] = 200
@@ -26,6 +31,7 @@ class TTSRequest(BaseModel):
     reference_id: str | None = None
     normalize: bool = True
     latency: Literal["normal", "balanced"] = "balanced"
+    prosody: Prosody | None = None
 
 
 class ASRRequest(BaseModel):

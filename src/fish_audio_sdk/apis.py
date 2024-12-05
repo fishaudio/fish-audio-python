@@ -21,7 +21,7 @@ class Session(RemoteCall):
             method="POST",
             url="/v1/tts",
             headers={"Content-Type": "application/msgpack"},
-            content=ormsgpack.packb(request, option=ormsgpack.OPT_SERIALIZE_PYDANTIC),
+            content=ormsgpack.packb(request.model_dump()),
         )
 
         def g() -> Generator[bytes, bytes, None]:
@@ -39,7 +39,7 @@ class Session(RemoteCall):
             method="POST",
             url="/v1/asr",
             headers={"Content-Type": "application/msgpack"},
-            content=ormsgpack.packb(request, option=ormsgpack.OPT_SERIALIZE_PYDANTIC),
+            content=ormsgpack.packb(request.model_dump()),
         )
         return ASRResponse.model_validate(response.json())
 

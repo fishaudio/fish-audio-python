@@ -44,20 +44,18 @@ class WebSocketSession:
             def sender():
                 ws.send_bytes(
                     ormsgpack.packb(
-                        StartEvent(request=request),
-                        option=ormsgpack.OPT_SERIALIZE_PYDANTIC,
+                        StartEvent(request=request).model_dump(),
                     )
                 )
                 for text in text_stream:
                     ws.send_bytes(
                         ormsgpack.packb(
-                            TextEvent(text=text),
-                            option=ormsgpack.OPT_SERIALIZE_PYDANTIC,
+                            TextEvent(text=text).model_dump(),
                         )
                     )
                 ws.send_bytes(
                     ormsgpack.packb(
-                        CloseEvent(), option=ormsgpack.OPT_SERIALIZE_PYDANTIC
+                        CloseEvent().model_dump(),
                     )
                 )
 
@@ -111,20 +109,18 @@ class AsyncWebSocketSession:
             async def sender():
                 await ws.send_bytes(
                     ormsgpack.packb(
-                        StartEvent(request=request),
-                        option=ormsgpack.OPT_SERIALIZE_PYDANTIC,
+                        StartEvent(request=request).model_dump(),
                     )
                 )
                 async for text in text_stream:
                     await ws.send_bytes(
                         ormsgpack.packb(
-                            TextEvent(text=text),
-                            option=ormsgpack.OPT_SERIALIZE_PYDANTIC,
+                            TextEvent(text=text).model_dump(),
                         )
                     )
                 await ws.send_bytes(
                     ormsgpack.packb(
-                        CloseEvent(), option=ormsgpack.OPT_SERIALIZE_PYDANTIC
+                        CloseEvent().model_dump(),
                     )
                 )
 
