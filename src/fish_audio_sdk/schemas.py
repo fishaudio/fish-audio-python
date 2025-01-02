@@ -2,7 +2,7 @@ import datetime
 import decimal
 from typing import Annotated, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, Field, conint
+from pydantic import BaseModel, Field
 
 Item = TypeVar("Item")
 
@@ -24,9 +24,11 @@ class Prosody(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
-    chunk_length: Annotated[int, conint(ge=100, le=300, strict=True)] = 200
+    chunk_length: Annotated[int, Field(ge=100, le=300, strict=True)] = 200
     format: Literal["wav", "pcm", "mp3"] = "mp3"
+    sample_rate: int | None = None
     mp3_bitrate: Literal[64, 128, 192] = 128
+    opus_bitrate: Literal[-1000, 24, 32, 48, 64] = 32
     references: list[ReferenceAudio] = []
     reference_id: str | None = None
     normalize: bool = True
