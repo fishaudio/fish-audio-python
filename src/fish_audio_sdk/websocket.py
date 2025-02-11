@@ -8,7 +8,7 @@ from httpx_ws import WebSocketDisconnect, connect_ws, aconnect_ws
 
 from .exceptions import WebSocketErr
 
-from .schemas import CloseEvent, StartEvent, TTSRequest, TextEvent
+from .schemas import Backends, CloseEvent, StartEvent, TTSRequest, TextEvent
 
 
 class WebSocketSession:
@@ -37,9 +37,16 @@ class WebSocketSession:
         self._client.close()
 
     def tts(
-        self, request: TTSRequest, text_stream: Iterable[str]
+        self,
+        request: TTSRequest,
+        text_stream: Iterable[str],
+        backend: Backends = "speech-1.5",
     ) -> Generator[bytes, None, None]:
-        with connect_ws("/v1/tts/live", client=self._client) as ws:
+        with connect_ws(
+            "/v1/tts/live",
+            client=self._client,
+            headers={"model": backend},
+        ) as ws:
 
             def sender():
                 ws.send_bytes(
@@ -102,9 +109,16 @@ class AsyncWebSocketSession:
         await self._client.aclose()
 
     async def tts(
-        self, request: TTSRequest, text_stream: AsyncIterable[str]
+        self,
+        request: TTSRequest,
+        text_stream: AsyncIterable[str],
+        backend: Backends = "speech-1.5",
     ) -> AsyncGenerator[bytes, None]:
-        async with aconnect_ws("/v1/tts/live", client=self._client) as ws:
+        async with aconnect_ws(
+            "/v1/tts/live",
+            client=self._client,
+            headers={"model": backend},
+        ) as ws:
 
             async def sender():
                 await ws.send_bytes(

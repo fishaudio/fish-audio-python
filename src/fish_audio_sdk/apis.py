@@ -8,6 +8,7 @@ from .schemas import (
     ASRRequest,
     ASRResponse,
     ModelEntity,
+    Backends,
     PackageEntity,
     PaginatedResponse,
     TTSRequest,
@@ -16,11 +17,11 @@ from .schemas import (
 
 class Session(RemoteCall):
     @convert_stream
-    def tts(self, request: TTSRequest) -> GStream:
+    def tts(self, request: TTSRequest, backend: Backends = "speech-1.5") -> GStream:
         yield Request(
             method="POST",
             url="/v1/tts",
-            headers={"Content-Type": "application/msgpack"},
+            headers={"Content-Type": "application/msgpack", "model": backend},
             content=ormsgpack.packb(request.model_dump()),
         )
 
