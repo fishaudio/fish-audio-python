@@ -4,6 +4,9 @@ from typing import Annotated, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field
 
+
+Backends = Literal["speech-1.5", "agent-x0"]
+
 Item = TypeVar("Item")
 
 
