@@ -17,7 +17,7 @@ from .schemas import (
 
 class Session(RemoteCall):
     @convert_stream
-    def tts(self, request: TTSRequest, backend: Backends = "speech-1.5") -> GStream:
+    def tts(self, request: TTSRequest, backend: Backends = "speech-1.6") -> GStream:
         yield Request(
             method="POST",
             url="/v1/tts",

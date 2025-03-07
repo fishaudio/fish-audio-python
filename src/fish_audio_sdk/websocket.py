@@ -40,7 +40,7 @@ class WebSocketSession:
         self,
         request: TTSRequest,
         text_stream: Iterable[str],
-        backend: Backends = "speech-1.5",
+        backend: Backends = "speech-1.6",
     ) -> Generator[bytes, None, None]:
         with connect_ws(
             "/v1/tts/live",
@@ -112,7 +112,7 @@ class AsyncWebSocketSession:
         self,
         request: TTSRequest,
         text_stream: AsyncIterable[str],
-        backend: Backends = "speech-1.5",
+        backend: Backends = "speech-1.6",
     ) -> AsyncGenerator[bytes, None]:
         async with aconnect_ws(
             "/v1/tts/live",
