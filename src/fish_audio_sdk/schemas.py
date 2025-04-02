@@ -37,6 +37,8 @@ class TTSRequest(BaseModel):
     normalize: bool = True
     latency: Literal["normal", "balanced"] = "balanced"
     prosody: Prosody | None = None
+    top_p: float = 0.7
+    temperature: float = 0.7
 
 
 class ASRRequest(BaseModel):
