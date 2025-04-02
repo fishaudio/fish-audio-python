@@ -50,6 +50,11 @@ async def test_list_models_async(session: Session):
     assert res.total > 0
 
 
+def test_list_self_models(session: Session):
+    res = session.list_models(self_only=True)
+    assert res.total > 0
+
+
 def test_get_model(session: Session):
     res = session.get_model(model_id="7f92f8afb8ec43bf81429cc1c9199cb1")
     assert res.id == "7f92f8afb8ec43bf81429cc1c9199cb1"
