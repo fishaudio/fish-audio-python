@@ -10,6 +10,12 @@ def test_tts(session: Session):
         buffer.extend(chunk)
     assert len(buffer) > 0
 
+def test_tts_model_1_6(session: Session):
+    buffer = bytearray()
+    for chunk in session.tts(TTSRequest(text="Hello, world!"), backend="speech-1.6"):
+        buffer.extend(chunk)
+    assert len(buffer) > 0
+
 
 async def test_tts_async(session: Session):
     buffer = bytearray()
