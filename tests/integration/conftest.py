@@ -14,6 +14,9 @@ load_dotenv()
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+# Test reference voice ID for testing reference voice features
+TEST_REFERENCE_ID = "ca3007f96ae7499ab87d27ea3599956a"
+
 
 @pytest.fixture
 def api_key():
@@ -24,12 +27,16 @@ def api_key():
     return key
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def client(api_key):
-    """Sync Fish Audio client."""
+    """Sync Fish Audio client (function-scoped for test isolation)."""
+    import time
+
     client = FishAudio(api_key=api_key)
     yield client
     client.close()
+    # Brief delay to avoid API rate limits on WebSocket connections
+    time.sleep(0.3)
 
 
 @pytest.fixture

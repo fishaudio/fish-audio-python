@@ -158,14 +158,17 @@ class TTSClient:
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
 
-        # Create WebSocket client
-        ws_client = self._client.create_websocket_client()
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
         try:
             ws: WebSocketSession
             with connect_ws(
-                "/v1/tts/live", client=ws_client, headers={"model": model}
+                "/v1/tts/live",
+                client=self._client.client,
+                headers={
+                    "model": model,
+                    "Authorization": f"Bearer {self._client.api_key}",
+                },
             ) as ws:
 
                 def sender():
@@ -186,7 +189,6 @@ class TTSClient:
 
                 sender_future.result()
         finally:
-            ws_client.close()
             executor.shutdown(wait=False)
 
 
@@ -298,31 +300,27 @@ class AsyncTTSClient:
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
 
-        # Create WebSocket client
-        ws_client = self._client.create_websocket_client()
+        ws: AsyncWebSocketSession
+        async with aconnect_ws(
+            "/v1/tts/live",
+            client=self._client.client,
+            headers={"model": model, "Authorization": f"Bearer {self._client.api_key}"},
+        ) as ws:
 
-        try:
-            ws: AsyncWebSocketSession
-            async with aconnect_ws(
-                "/v1/tts/live", client=ws_client, headers={"model": model}
-            ) as ws:
+            async def sender():
+                await ws.send_bytes(
+                    ormsgpack.packb(StartEvent(request=tts_request).model_dump())
+                )
+                # Normalize strings to TextEvent
+                async for item in text_stream:
+                    event = _normalize_to_event(item)
+                    await ws.send_bytes(ormsgpack.packb(event.model_dump()))
+                await ws.send_bytes(ormsgpack.packb(CloseEvent().model_dump()))
 
-                async def sender():
-                    await ws.send_bytes(
-                        ormsgpack.packb(StartEvent(request=tts_request).model_dump())
-                    )
-                    # Normalize strings to TextEvent
-                    async for item in text_stream:
-                        event = _normalize_to_event(item)
-                        await ws.send_bytes(ormsgpack.packb(event.model_dump()))
-                    await ws.send_bytes(ormsgpack.packb(CloseEvent().model_dump()))
+            sender_task = asyncio.create_task(sender())
 
-                sender_task = asyncio.create_task(sender())
+            # Process incoming audio messages
+            async for audio_chunk in aiter_websocket_audio(ws):
+                yield audio_chunk
 
-                # Process incoming audio messages
-                async for audio_chunk in aiter_websocket_audio(ws):
-                    yield audio_chunk
-
-                await sender_task
-        finally:
-            await ws_client.aclose()
+            await sender_task

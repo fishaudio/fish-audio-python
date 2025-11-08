@@ -150,17 +150,10 @@ class ClientWrapper(BaseClientWrapper):
 
         return response
 
-    def create_websocket_client(self) -> httpx.Client:
-        """
-        Create an httpx.Client configured for WebSocket connections.
-
-        Returns:
-            Configured httpx.Client with authentication
-        """
-        return httpx.Client(
-            base_url=self.base_url,
-            headers={"Authorization": f"Bearer {self.api_key}"},
-        )
+    @property
+    def client(self) -> httpx.Client:
+        """Get underlying httpx.Client for advanced usage (e.g., WebSockets)."""
+        return self._client
 
     def close(self) -> None:
         """Close the HTTP client."""
@@ -229,17 +222,10 @@ class AsyncClientWrapper(BaseClientWrapper):
 
         return response
 
-    def create_websocket_client(self) -> httpx.AsyncClient:
-        """
-        Create an httpx.AsyncClient configured for WebSocket connections.
-
-        Returns:
-            Configured httpx.AsyncClient with authentication
-        """
-        return httpx.AsyncClient(
-            base_url=self.base_url,
-            headers={"Authorization": f"Bearer {self.api_key}"},
-        )
+    @property
+    def client(self) -> httpx.AsyncClient:
+        """Get underlying httpx.AsyncClient for advanced usage (e.g., WebSockets)."""
+        return self._client
 
     async def close(self) -> None:
         """Close the HTTP client."""

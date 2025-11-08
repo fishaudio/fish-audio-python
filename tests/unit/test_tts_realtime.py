@@ -13,6 +13,8 @@ def mock_client_wrapper(mock_api_key):
     """Mock client wrapper."""
     wrapper = Mock(spec=ClientWrapper)
     wrapper.api_key = mock_api_key
+    # Mock the underlying httpx.Client
+    wrapper._client = Mock()
     return wrapper
 
 
@@ -21,6 +23,8 @@ def async_mock_client_wrapper(mock_api_key):
     """Mock async client wrapper."""
     wrapper = Mock(spec=AsyncClientWrapper)
     wrapper.api_key = mock_api_key
+    # Mock the underlying httpx.AsyncClient
+    wrapper._client = Mock()
     return wrapper
 
 
@@ -58,10 +62,6 @@ class TestTTSRealtimeClient:
         mock_executor_instance.submit.return_value = mock_future
         mock_executor.return_value = mock_executor_instance
 
-        # Mock the WebSocket client creation
-        mock_ws_client = Mock()
-        mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
-
         # Mock the audio receiver (iter_websocket_audio)
         with patch("fishaudio.resources.tts.iter_websocket_audio") as mock_receiver:
             mock_receiver.return_value = iter([b"audio1", b"audio2", b"audio3"])
@@ -78,9 +78,6 @@ class TestTTSRealtimeClient:
             # Verify WebSocket connection was created
             mock_connect_ws.assert_called_once()
             assert mock_connect_ws.call_args[0][0] == "/v1/tts/live"
-
-            # Verify WebSocket client was closed
-            mock_ws_client.close.assert_called_once()
 
     @patch("fishaudio.resources.tts.connect_ws")
     @patch("fishaudio.resources.tts.ThreadPoolExecutor")
@@ -99,9 +96,6 @@ class TestTTSRealtimeClient:
         mock_executor_instance = Mock()
         mock_executor_instance.submit.return_value = mock_future
         mock_executor.return_value = mock_executor_instance
-
-        mock_ws_client = Mock()
-        mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
 
         with patch("fishaudio.resources.tts.iter_websocket_audio") as mock_receiver:
             mock_receiver.return_value = iter([b"audio"])
@@ -124,10 +118,6 @@ class TestTTSRealtimeClient:
             call_args = mock_connect_ws.call_args
             assert call_args[1]["headers"]["model"] == "speech-1.5"
 
-            # Verify config was sent in StartEvent (would be first send_bytes call)
-            # The sender runs in a thread, so we can't easily inspect the exact calls
-            mock_ws_client.close.assert_called_once()
-
     @patch("fishaudio.resources.tts.connect_ws")
     @patch("fishaudio.resources.tts.ThreadPoolExecutor")
     def test_stream_websocket_with_text_events(
@@ -145,9 +135,6 @@ class TestTTSRealtimeClient:
         mock_executor_instance = Mock()
         mock_executor_instance.submit.return_value = mock_future
         mock_executor.return_value = mock_executor_instance
-
-        mock_ws_client = Mock()
-        mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
 
         with patch("fishaudio.resources.tts.iter_websocket_audio") as mock_receiver:
             mock_receiver.return_value = iter([b"audio1", b"audio2"])
@@ -185,9 +172,6 @@ class TestTTSRealtimeClient:
         mock_executor_instance.submit.return_value = mock_future
         mock_executor.return_value = mock_executor_instance
 
-        mock_ws_client = Mock()
-        mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
-
         with patch("fishaudio.resources.tts.iter_websocket_audio") as mock_receiver:
             mock_receiver.return_value = iter([b"audio"])
 
@@ -213,11 +197,6 @@ class TestAsyncTTSRealtimeClient:
         mock_ws.__aexit__ = AsyncMock(return_value=None)
         mock_ws.send_bytes = AsyncMock()
         mock_aconnect_ws.return_value = mock_ws
-
-        # Mock the WebSocket client creation
-        mock_ws_client = Mock()
-        mock_ws_client.aclose = AsyncMock()
-        async_mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
 
         # Mock the audio receiver
         async def mock_audio_receiver(ws):
@@ -245,9 +224,6 @@ class TestAsyncTTSRealtimeClient:
             mock_aconnect_ws.assert_called_once()
             assert mock_aconnect_ws.call_args[0][0] == "/v1/tts/live"
 
-            # Verify WebSocket client was closed
-            mock_ws_client.aclose.assert_called_once()
-
     @pytest.mark.asyncio
     @patch("fishaudio.resources.tts.aconnect_ws")
     async def test_stream_websocket_with_config(
@@ -260,10 +236,6 @@ class TestAsyncTTSRealtimeClient:
         mock_ws.__aexit__ = AsyncMock(return_value=None)
         mock_ws.send_bytes = AsyncMock()
         mock_aconnect_ws.return_value = mock_ws
-
-        mock_ws_client = Mock()
-        mock_ws_client.aclose = AsyncMock()
-        async_mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
 
         async def mock_audio_receiver(ws):
             yield b"audio"
@@ -292,9 +264,6 @@ class TestAsyncTTSRealtimeClient:
             call_args = mock_aconnect_ws.call_args
             assert call_args[1]["headers"]["model"] == "speech-1.6"
 
-            # Verify client was closed
-            mock_ws_client.aclose.assert_called_once()
-
     @pytest.mark.asyncio
     @patch("fishaudio.resources.tts.aconnect_ws")
     async def test_stream_websocket_with_text_events(
@@ -307,10 +276,6 @@ class TestAsyncTTSRealtimeClient:
         mock_ws.__aexit__ = AsyncMock(return_value=None)
         mock_ws.send_bytes = AsyncMock()
         mock_aconnect_ws.return_value = mock_ws
-
-        mock_ws_client = Mock()
-        mock_ws_client.aclose = AsyncMock()
-        async_mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
 
         async def mock_audio_receiver(ws):
             yield b"audio1"
@@ -347,10 +312,6 @@ class TestAsyncTTSRealtimeClient:
         mock_ws.send_bytes = AsyncMock()
         mock_aconnect_ws.return_value = mock_ws
 
-        mock_ws_client = Mock()
-        mock_ws_client.aclose = AsyncMock()
-        async_mock_client_wrapper.create_websocket_client.return_value = mock_ws_client
-
         async def mock_audio_receiver(ws):
             return
             yield  # Make it a generator
@@ -370,6 +331,3 @@ class TestAsyncTTSRealtimeClient:
 
             # Should have no audio
             assert audio_chunks == []
-
-            # Verify client was still closed
-            mock_ws_client.aclose.assert_called_once()
