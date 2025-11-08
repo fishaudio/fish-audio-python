@@ -168,4 +168,5 @@ class Session(RemoteCall):
         return PackageEntity.model_validate(response.json())
 
 
-filter_none = lambda d: {k: v for k, v in d.items() if v is not None}
+def filter_none(d):
+    return {k: v for k, v in d.items() if v is not None}
