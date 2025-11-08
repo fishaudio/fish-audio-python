@@ -10,7 +10,27 @@ pip install fish-audio-sdk
 
 ## Usage
 
-Initialize a `Session` to use APIs. All APIs have synchronous and asynchronous versions. If you want to use the asynchronous version of the API, you only need to rewrite the original `session.api_call(...)` to `session.api_call.awaitable(...)`.
+### New SDK (Recommended)
+
+The new SDK uses the `fishaudio` module:
+
+```python
+from fishaudio import FishAudio
+
+client = FishAudio(api_key="your_api_key")
+```
+
+You can customize the base URL:
+
+```python
+from fishaudio import FishAudio
+
+client = FishAudio(api_key="your_api_key", base_url="https://your-proxy-domain")
+```
+
+### Legacy SDK
+
+The legacy SDK uses the `fish_audio_sdk` module. Initialize a `Session` to use APIs. All APIs have synchronous and asynchronous versions. If you want to use the asynchronous version of the API, you only need to rewrite the original `session.api_call(...)` to `session.api_call.awaitable(...)`.
 
 ```python
 from fish_audio_sdk import Session

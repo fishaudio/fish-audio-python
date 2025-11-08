@@ -72,12 +72,13 @@ class WebSocketSession:
                 try:
                     message = ws.receive_bytes()
                     data = ormsgpack.unpackb(message)
-                    match data["event"]:
-                        case "audio":
-                            yield data["audio"]
-                        case "finish" if data["reason"] == "error":
+                    event = data["event"]
+                    if event == "audio":
+                        yield data["audio"]
+                    elif event == "finish":
+                        if data["reason"] == "error":
                             raise WebSocketErr
-                        case "finish" if data["reason"] == "stop":
+                        elif data["reason"] == "stop":
                             break
                 except WebSocketDisconnect:
                     raise WebSocketErr
@@ -144,12 +145,13 @@ class AsyncWebSocketSession:
                 try:
                     message = await ws.receive_bytes()
                     data = ormsgpack.unpackb(message)
-                    match data["event"]:
-                        case "audio":
-                            yield data["audio"]
-                        case "finish" if data["reason"] == "error":
+                    event = data["event"]
+                    if event == "audio":
+                        yield data["audio"]
+                    elif event == "finish":
+                        if data["reason"] == "error":
                             raise WebSocketErr
-                        case "finish" if data["reason"] == "stop":
+                        elif data["reason"] == "stop":
                             break
                 except WebSocketDisconnect:
                     raise WebSocketErr
