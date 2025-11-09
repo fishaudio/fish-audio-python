@@ -32,12 +32,8 @@ jobs:
           repository: ${{ vars.DOCS_REPO }}
           path: docs
 
-      - name: Create module reference directory
-        run: mkdir -p docs/sdk-reference/python/module-reference
-
       - name: Copy generated documentation
-        run: |
-          cp sdk/build/docs/content/fishaudio/*.md docs/sdk-reference/python/module-reference/
+        run: uv run python sdk/scripts/copy_docs.py sdk docs
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
