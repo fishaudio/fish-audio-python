@@ -13,6 +13,7 @@ Example:
 import argparse
 import shutil
 from pathlib import Path
+from typing import Callable
 
 
 def add_frontmatter(content: str, title: str, description: str, icon: str) -> str:
@@ -38,6 +39,81 @@ icon: "{icon}"
     return frontmatter + content
 
 
+def copy_file_with_extension_change(
+    source: Path, dest_dir: Path, new_extension: str = ".mdx"
+) -> None:
+    """
+    Copy a single file to destination directory with extension change.
+
+    Args:
+        source: Source file path
+        dest_dir: Destination directory
+        new_extension: New file extension (default: .mdx)
+    """
+    if not source.exists():
+        print(f"Warning: {source} does not exist")
+        return
+
+    dest = dest_dir / source.with_suffix(new_extension).name
+    shutil.copy2(source, dest)
+    print(f"  ✓ {source.name} -> {dest.name}")
+
+
+def copy_files_from_directory(
+    source_dir: Path, dest_dir: Path, pattern: str = "*.md", new_extension: str = ".mdx"
+) -> None:
+    """
+    Copy all files matching pattern from source directory to destination with extension change.
+
+    Args:
+        source_dir: Source directory
+        dest_dir: Destination directory
+        pattern: File pattern to match (default: *.md)
+        new_extension: New file extension (default: .mdx)
+    """
+    if not source_dir.exists():
+        print(f"Warning: {source_dir} does not exist")
+        return
+
+    print(f"Copying files from {source_dir} to {dest_dir}")
+    for file in source_dir.glob(pattern):
+        dest = dest_dir / file.with_suffix(new_extension).name
+        shutil.copy2(file, dest)
+        print(f"  ✓ {file.name} -> {dest.name}")
+
+
+def copy_file_with_transformation(
+    source: Path,
+    dest_dir: Path,
+    transform_fn: Callable[[str], str],
+    new_extension: str = ".mdx",
+    dest_filename: str | None = None,
+) -> None:
+    """
+    Copy a file with content transformation.
+
+    Args:
+        source: Source file path
+        dest_dir: Destination directory
+        transform_fn: Function to transform file content
+        new_extension: New file extension (default: .mdx)
+        dest_filename: Optional custom destination filename (without extension)
+    """
+    if not source.exists():
+        print(f"Warning: {source} does not exist")
+        return
+
+    if dest_filename:
+        dest = dest_dir / f"{dest_filename}{new_extension}"
+    else:
+        dest = dest_dir / source.with_suffix(new_extension).name
+
+    content = source.read_text(encoding="utf-8")
+    transformed_content = transform_fn(content)
+    dest.write_text(transformed_content, encoding="utf-8")
+    print(f"  ✓ {source.name} -> {dest.name} (transformed)")
+
+
 def copy_docs(sdk_root: Path, docs_root: Path) -> None:
     """
     Copy generated documentation files to the docs repository.
@@ -49,52 +125,29 @@ def copy_docs(sdk_root: Path, docs_root: Path) -> None:
     # Source paths
     build_dir = sdk_root / "build" / "docs" / "content"
     fishaudio_dir = build_dir / "fishaudio"
-    fish_audio_sdk_file = build_dir / "fish_audio_sdk.md"
     index_file = build_dir / "index.md"
 
-    # Destination paths
-    module_ref_dir = docs_root / "sdk-reference" / "python" / "module-reference"
-    python_sdk_dir = docs_root / "sdk-reference" / "python"
+    # Destination path (flat structure - all files go to the same directory)
+    python_sdk_dir = docs_root / "api-reference" / "sdk" / "python"
 
-    # Create destination directories
-    module_ref_dir.mkdir(parents=True, exist_ok=True)
+    # Create destination directory
     python_sdk_dir.mkdir(parents=True, exist_ok=True)
 
     # Copy fishaudio module reference files
-    if fishaudio_dir.exists():
-        print(f"Copying files from {fishaudio_dir} to {module_ref_dir}")
-        for md_file in fishaudio_dir.glob("*.md"):
-            dest = module_ref_dir / md_file.name
-            shutil.copy2(md_file, dest)
-            print(f"  ✓ {md_file.name}")
-    else:
-        print(f"Warning: {fishaudio_dir} does not exist")
+    copy_files_from_directory(fishaudio_dir, python_sdk_dir)
 
-    # Copy fish_audio_sdk.md
-    if fish_audio_sdk_file.exists():
-        dest = module_ref_dir / fish_audio_sdk_file.name
-        shutil.copy2(fish_audio_sdk_file, dest)
-        print(f"  ✓ {fish_audio_sdk_file.name}")
-    else:
-        print(f"Warning: {fish_audio_sdk_file} does not exist")
-
-    # Copy index.md to python directory with frontmatter
-    if index_file.exists():
-        dest = python_sdk_dir / index_file.name
-        # Read original content
-        content = index_file.read_text(encoding="utf-8")
-        # Add Mintlify frontmatter
-        content_with_frontmatter = add_frontmatter(
+    # Copy index.md to python directory as overview.mdx with frontmatter
+    copy_file_with_transformation(
+        index_file,
+        python_sdk_dir,
+        lambda content: add_frontmatter(
             content,
             title="Python SDK",
             description="Fish Audio Python SDK for text-to-speech and voice cloning",
             icon="python",
-        )
-        # Write to destination
-        dest.write_text(content_with_frontmatter, encoding="utf-8")
-        print(f"  ✓ {index_file.name} -> {python_sdk_dir} (with frontmatter)")
-    else:
-        print(f"Warning: {index_file} does not exist")
+        ),
+        dest_filename="overview",
+    )
 
     print("\nDocumentation copy completed successfully!")
 
