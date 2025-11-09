@@ -78,5 +78,4 @@ pages = [
     {title = "Core", name="fishaudio/core", contents = ["fishaudio.core.*"] },
     {title = "Utils", name="fishaudio/utils", contents = ["fishaudio.utils.*"] },
     {title = "Exceptions", name="fishaudio/exceptions", contents = ["fishaudio.exceptions.*"] },
-    {title = "Legacy SDK", name="fish_audio_sdk", contents = ["fish_audio_sdk.*"]},
 ]

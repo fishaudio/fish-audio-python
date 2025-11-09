@@ -1,4 +1,4 @@
-name: Update Documentation
+name: Documentation
 
 on:
   push:
@@ -38,7 +38,6 @@ jobs:
       - name: Copy generated documentation
         run: |
           cp sdk/build/docs/content/fishaudio/*.md docs/sdk-reference/python/module-reference/
-          cp sdk/build/docs/content/fish_audio_sdk.md docs/sdk-reference/python/module-reference/
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
