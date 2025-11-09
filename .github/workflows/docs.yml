@@ -51,7 +51,6 @@ jobs:
             Auto-generated from fishaudio/fish-audio-python@${{ github.sha }}
           branch: auto/python-api-docs
           delete-branch: true
-          sign-commits: true
           title: "Update Python SDK API Reference"
           body: |
             Auto-generated API documentation update from [fish-audio-python@${{ github.sha }}](https://github.com/fishaudio/fish-audio-python/commit/${{ github.sha }})
