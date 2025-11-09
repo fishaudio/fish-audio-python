@@ -56,9 +56,26 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = [
     "mypy>=1.14.1",
+    "pydoc-markdown>=4.8.2",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
     "python-dotenv>=1.0.1",
     "ruff>=0.14.3",
+]
+
+[[tool.pydoc-markdown.loaders]]
+type = "python"
+packages = ["fishaudio", "fish_audio_sdk"]
+
+[tool.pydoc-markdown.renderer]
+type = "mkdocs"
+pages = [
+    {title = "Fish Audio SDK", name="index", source = "README.md"},
+    {title = "Client", name="fishaudio/client", contents = ["fishaudio.client.*"] },
+    {title = "Resources", name="fishaudio/resources", contents = ["fishaudio.resources.*"] },
+    {title = "Types", name="fishaudio/types", contents = ["fishaudio.types.*"] },
+    {title = "Core", name="fishaudio/core", contents = ["fishaudio.core.*"] },
+    {title = "Utils", name="fishaudio/utils", contents = ["fishaudio.utils.*"] },
+    {title = "Exceptions", name="fishaudio/exceptions", contents = ["fishaudio.exceptions.*"] },
 ]

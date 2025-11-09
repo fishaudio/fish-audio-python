@@ -1,0 +1,59 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  update-docs:
+    name: Generate Docs
+    runs-on: ubuntu-latest
+    environment: docs
+    steps:
+      - name: Checkout fish-audio-python
+        uses: actions/checkout@v4
+        with:
+          path: sdk
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        working-directory: sdk
+        run: uv sync
+
+      - name: Generate API documentation
+        working-directory: sdk
+        run: uv run pydoc-markdown
+
+      - name: Checkout docs
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.DOCS_REPO }}
+          path: docs
+
+      - name: Copy generated documentation
+        run: uv run python sdk/scripts/copy_docs.py sdk docs
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.DOCS_TOKEN }}
+          path: docs
+          commit-message: |
+            chore: update Python SDK API reference
+
+            Auto-generated from fishaudio/fish-audio-python@${{ github.sha }}
+          branch: auto/python-api-docs
+          delete-branch: true
+          title: "Update Python SDK API Reference"
+          body: |
+            Auto-generated API documentation update from [fish-audio-python@${{ github.sha }}](https://github.com/fishaudio/fish-audio-python/commit/${{ github.sha }})
+
+            ## Changes
+            - Updated API reference documentation for Python SDK
+            - Generated from latest docstrings in the codebase
+
+          labels: |
+            python
