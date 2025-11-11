@@ -7,6 +7,8 @@ To provide convenient Python program integration for https://docs.fish.audio.
 ```bash
 pip install fish-audio-sdk
 ```
+> [!NOTE]
+> The new release has not officially been released yet - please see legacy SDK documentation for now.
 
 ## Usage
 
