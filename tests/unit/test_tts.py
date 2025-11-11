@@ -81,6 +81,39 @@ class TestTTSClient:
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert payload["reference_id"] == "voice_123"
 
+    def test_convert_with_reference_id_parameter(self, tts_client, mock_client_wrapper):
+        """Test TTS with reference_id as direct parameter."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        list(tts_client.convert(text="Hello", reference_id="voice_456"))
+
+        # Verify reference_id in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["reference_id"] == "voice_456"
+
+    def test_convert_config_reference_id_overrides_parameter(
+        self, tts_client, mock_client_wrapper
+    ):
+        """Test that config.reference_id overrides parameter reference_id."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        config = TTSConfig(reference_id="voice_from_config")
+        list(
+            tts_client.convert(
+                text="Hello", reference_id="voice_from_param", config=config
+            )
+        )
+
+        # Verify config reference_id takes precedence
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["reference_id"] == "voice_from_config"
+
     def test_convert_with_references(self, tts_client, mock_client_wrapper):
         """Test TTS with reference audio samples."""
         mock_response = Mock()
@@ -281,6 +314,55 @@ class TestAsyncTTSClient:
         call_args = async_mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert payload["reference_id"] == "voice_123"
+
+    @pytest.mark.asyncio
+    async def test_convert_with_reference_id_parameter(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test async TTS with reference_id as direct parameter."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(
+            text="Hello", reference_id="voice_456"
+        ):
+            audio_chunks.append(chunk)
+
+        # Verify reference_id in payload
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["reference_id"] == "voice_456"
+
+    @pytest.mark.asyncio
+    async def test_convert_config_reference_id_overrides_parameter(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test that config.reference_id overrides parameter reference_id (async)."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        config = TTSConfig(reference_id="voice_from_config")
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(
+            text="Hello", reference_id="voice_from_param", config=config
+        ):
+            audio_chunks.append(chunk)
+
+        # Verify config reference_id takes precedence
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["reference_id"] == "voice_from_config"
 
     @pytest.mark.asyncio
     async def test_convert_with_prosody(
