@@ -1,7 +1,7 @@
 [project]
 name = "fish-audio-sdk"
 version = "1.0.0"
-description = "Python SDK for Fish Audio text-to-speech and voice cloning API"
+description = "The official Python library for the Fish Audio API"
 authors = [
     {name = "abersheeran", email = "me@abersheeran.com"},
     {name = "James Ding", email = "james@fish.audio"},
