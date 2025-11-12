@@ -64,8 +64,8 @@ class TTSConfig(BaseModel):
     prosody: Optional[Prosody] = None
 
     # Model parameters
-    top_p: float = 0.7
-    temperature: float = 0.7
+    top_p: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    temperature: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
 
 
 class TTSRequest(BaseModel):
@@ -87,8 +87,8 @@ class TTSRequest(BaseModel):
     normalize: bool = True
     latency: LatencyMode = "balanced"
     prosody: Optional[Prosody] = None
-    top_p: float = 0.7
-    temperature: float = 0.7
+    top_p: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    temperature: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
 
 
 # WebSocket event types for streaming TTS
