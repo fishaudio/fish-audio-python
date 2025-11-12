@@ -4,7 +4,7 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from .shared import LatencyMode
+from .shared import AudioFormat, LatencyMode
 
 
 class ReferenceAudio(BaseModel):
@@ -17,8 +17,26 @@ class ReferenceAudio(BaseModel):
 class Prosody(BaseModel):
     """Speech prosody settings (speed and volume)."""
 
-    speed: float = 1.0
-    volume: float = 0.0
+    speed: Annotated[float, Field(ge=0.5, le=2.0)] = 1.0
+    volume: Annotated[float, Field(ge=-20.0, le=20.0)] = 0.0
+
+    @classmethod
+    def from_speed_override(
+        cls, speed: float, base: Optional["Prosody"] = None
+    ) -> "Prosody":
+        """
+        Create Prosody with speed override, preserving volume from base.
+
+        Args:
+            speed: Speed value to use
+            base: Base prosody to preserve volume from (if any)
+
+        Returns:
+            New Prosody instance with overridden speed
+        """
+        if base:
+            return cls(speed=speed, volume=base.volume)
+        return cls(speed=speed)
 
 
 class TTSConfig(BaseModel):
@@ -30,7 +48,7 @@ class TTSConfig(BaseModel):
     """
 
     # Audio output settings
-    format: Literal["wav", "pcm", "mp3"] = "mp3"
+    format: AudioFormat = "mp3"
     sample_rate: Optional[int] = None
     mp3_bitrate: Literal[64, 128, 192] = 128
     opus_bitrate: Literal[-1000, 24, 32, 48, 64] = 32
@@ -46,8 +64,8 @@ class TTSConfig(BaseModel):
     prosody: Optional[Prosody] = None
 
     # Model parameters
-    top_p: float = 0.7
-    temperature: float = 0.7
+    top_p: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    temperature: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
 
 
 class TTSRequest(BaseModel):
@@ -60,7 +78,7 @@ class TTSRequest(BaseModel):
 
     text: str
     chunk_length: Annotated[int, Field(ge=100, le=300, strict=True)] = 200
-    format: Literal["wav", "pcm", "mp3"] = "mp3"
+    format: AudioFormat = "mp3"
     sample_rate: Optional[int] = None
     mp3_bitrate: Literal[64, 128, 192] = 128
     opus_bitrate: Literal[-1000, 24, 32, 48, 64] = 32
@@ -69,8 +87,8 @@ class TTSRequest(BaseModel):
     normalize: bool = True
     latency: LatencyMode = "balanced"
     prosody: Optional[Prosody] = None
-    top_p: float = 0.7
-    temperature: float = 0.7
+    top_p: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    temperature: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
 
 
 # WebSocket event types for streaming TTS

@@ -2,7 +2,7 @@
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import AsyncIterable, Iterable, Iterator, Optional, Union
+from typing import AsyncIterable, Iterable, Iterator, List, Optional, Union
 
 import ormsgpack
 from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, connect_ws
@@ -10,9 +10,13 @@ from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, conne
 from .realtime import aiter_websocket_audio, iter_websocket_audio
 from ..core import AsyncClientWrapper, ClientWrapper, RequestOptions
 from ..types import (
+    AudioFormat,
     CloseEvent,
     FlushEvent,
+    LatencyMode,
     Model,
+    Prosody,
+    ReferenceAudio,
     StartEvent,
     TextEvent,
     TTSConfig,
@@ -58,6 +62,11 @@ class TTSClient:
         self,
         *,
         text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[List[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
         request_options: Optional[RequestOptions] = None,
@@ -67,6 +76,11 @@ class TTSClient:
 
         Args:
             text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -76,16 +90,40 @@ class TTSClient:
 
         Example:
             ```python
-            from fishaudio import FishAudio, TTSConfig
+            from fishaudio import FishAudio, TTSConfig, ReferenceAudio
 
             client = FishAudio(api_key="...")
 
             # Simple usage with defaults
             audio = client.tts.convert(text="Hello world")
 
-            # Custom configuration
-            config = TTSConfig(format="wav", mp3_bitrate=192)
-            audio = client.tts.convert(text="Hello world", config=config)
+            # With format parameter
+            audio = client.tts.convert(text="Hello world", format="wav")
+
+            # With speed parameter
+            audio = client.tts.convert(text="Hello world", speed=1.5)
+
+            # With reference_id parameter
+            audio = client.tts.convert(text="Hello world", reference_id="your_model_id")
+
+            # With references parameter
+            audio = client.tts.convert(
+                text="Hello world",
+                references=[ReferenceAudio(audio=audio_bytes, text="sample")]
+            )
+
+            # Combine multiple parameters
+            audio = client.tts.convert(
+                text="Hello world",
+                format="wav",
+                speed=1.2,
+                latency="normal"
+            )
+
+            # Parameters override config values
+            config = TTSConfig(format="mp3", prosody=Prosody(speed=1.0))
+            audio = client.tts.convert(text="Hello world", format="wav", config=config)
+            # Result: format="wav" (parameter wins)
 
             with open("output.mp3", "wb") as f:
                 for chunk in audio:
@@ -94,6 +132,23 @@ class TTSClient:
         """
         # Build request payload from config
         request = _config_to_tts_request(config, text)
+
+        # Apply direct parameters (always override config when provided)
+        if reference_id is not None:
+            request.reference_id = reference_id
+
+        if references is not None:
+            request.references = references
+
+        if format is not None:
+            request.format = format
+
+        if latency is not None:
+            request.latency = latency
+
+        if speed is not None:
+            request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
+
         payload = request.model_dump(exclude_none=True)
 
         # Make request with streaming
@@ -114,6 +169,11 @@ class TTSClient:
         self,
         text_stream: Iterable[Union[str, TextEvent, FlushEvent]],
         *,
+        reference_id: Optional[str] = None,
+        references: Optional[List[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
         max_workers: int = 10,
@@ -125,6 +185,11 @@ class TTSClient:
 
         Args:
             text_stream: Iterator of text chunks to stream
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             max_workers: ThreadPoolExecutor workers for concurrent sender
@@ -134,7 +199,7 @@ class TTSClient:
 
         Example:
             ```python
-            from fishaudio import FishAudio, TTSConfig
+            from fishaudio import FishAudio, TTSConfig, ReferenceAudio
 
             client = FishAudio(api_key="...")
 
@@ -148,15 +213,59 @@ class TTSClient:
                 for audio_chunk in client.tts.stream_websocket(text_generator()):
                     f.write(audio_chunk)
 
-            # Custom configuration
-            config = TTSConfig(format="wav", latency="normal")
+            # With format and speed parameters
             with open("output.wav", "wb") as f:
-                for audio_chunk in client.tts.stream_websocket(text_generator(), config=config):
+                for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    format="wav",
+                    speed=1.3
+                ):
+                    f.write(audio_chunk)
+
+            # With reference_id parameter
+            with open("output.mp3", "wb") as f:
+                for audio_chunk in client.tts.stream_websocket(text_generator(), reference_id="your_model_id"):
+                    f.write(audio_chunk)
+
+            # With references parameter
+            with open("output.mp3", "wb") as f:
+                for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    references=[ReferenceAudio(audio=audio_bytes, text="sample")]
+                ):
+                    f.write(audio_chunk)
+
+            # Parameters override config values
+            config = TTSConfig(format="mp3", latency="balanced")
+            with open("output.wav", "wb") as f:
+                for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    format="wav",  # Parameter wins
+                    config=config
+                ):
                     f.write(audio_chunk)
             ```
         """
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
+
+        # Apply direct parameters (always override config when provided)
+        if reference_id is not None:
+            tts_request.reference_id = reference_id
+
+        if references is not None:
+            tts_request.references = references
+
+        if format is not None:
+            tts_request.format = format
+
+        if latency is not None:
+            tts_request.latency = latency
+
+        if speed is not None:
+            tts_request.prosody = Prosody.from_speed_override(
+                speed, base=config.prosody
+            )
 
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -202,6 +311,11 @@ class AsyncTTSClient:
         self,
         *,
         text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[List[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
         request_options: Optional[RequestOptions] = None,
@@ -211,6 +325,11 @@ class AsyncTTSClient:
 
         Args:
             text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -220,16 +339,40 @@ class AsyncTTSClient:
 
         Example:
             ```python
-            from fishaudio import AsyncFishAudio, TTSConfig
+            from fishaudio import AsyncFishAudio, TTSConfig, ReferenceAudio
 
             client = AsyncFishAudio(api_key="...")
 
             # Simple usage with defaults
             audio = await client.tts.convert(text="Hello world")
 
-            # Custom configuration
-            config = TTSConfig(format="wav", mp3_bitrate=192)
-            audio = await client.tts.convert(text="Hello world", config=config)
+            # With format parameter
+            audio = await client.tts.convert(text="Hello world", format="wav")
+
+            # With speed parameter
+            audio = await client.tts.convert(text="Hello world", speed=1.5)
+
+            # With reference_id parameter
+            audio = await client.tts.convert(text="Hello world", reference_id="your_model_id")
+
+            # With references parameter
+            audio = await client.tts.convert(
+                text="Hello world",
+                references=[ReferenceAudio(audio=audio_bytes, text="sample")]
+            )
+
+            # Combine multiple parameters
+            audio = await client.tts.convert(
+                text="Hello world",
+                format="wav",
+                speed=1.2,
+                latency="normal"
+            )
+
+            # Parameters override config values
+            config = TTSConfig(format="mp3", prosody=Prosody(speed=1.0))
+            audio = await client.tts.convert(text="Hello world", format="wav", config=config)
+            # Result: format="wav" (parameter wins)
 
             async with aiofiles.open("output.mp3", "wb") as f:
                 async for chunk in audio:
@@ -238,6 +381,23 @@ class AsyncTTSClient:
         """
         # Build request payload from config
         request = _config_to_tts_request(config, text)
+
+        # Apply direct parameters (always override config when provided)
+        if reference_id is not None:
+            request.reference_id = reference_id
+
+        if references is not None:
+            request.references = references
+
+        if format is not None:
+            request.format = format
+
+        if latency is not None:
+            request.latency = latency
+
+        if speed is not None:
+            request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
+
         payload = request.model_dump(exclude_none=True)
 
         # Make request with streaming
@@ -258,6 +418,11 @@ class AsyncTTSClient:
         self,
         text_stream: AsyncIterable[Union[str, TextEvent, FlushEvent]],
         *,
+        reference_id: Optional[str] = None,
+        references: Optional[List[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
     ):
@@ -268,6 +433,11 @@ class AsyncTTSClient:
 
         Args:
             text_stream: Async iterator of text chunks to stream
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
 
@@ -276,7 +446,7 @@ class AsyncTTSClient:
 
         Example:
             ```python
-            from fishaudio import AsyncFishAudio, TTSConfig
+            from fishaudio import AsyncFishAudio, TTSConfig, ReferenceAudio
 
             client = AsyncFishAudio(api_key="...")
 
@@ -290,15 +460,59 @@ class AsyncTTSClient:
                 async for audio_chunk in client.tts.stream_websocket(text_generator()):
                     await f.write(audio_chunk)
 
-            # Custom configuration
-            config = TTSConfig(format="wav", latency="normal")
+            # With format and speed parameters
             async with aiofiles.open("output.wav", "wb") as f:
-                async for audio_chunk in client.tts.stream_websocket(text_generator(), config=config):
+                async for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    format="wav",
+                    speed=1.3
+                ):
+                    await f.write(audio_chunk)
+
+            # With reference_id parameter
+            async with aiofiles.open("output.mp3", "wb") as f:
+                async for audio_chunk in client.tts.stream_websocket(text_generator(), reference_id="your_model_id"):
+                    await f.write(audio_chunk)
+
+            # With references parameter
+            async with aiofiles.open("output.mp3", "wb") as f:
+                async for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    references=[ReferenceAudio(audio=audio_bytes, text="sample")]
+                ):
+                    await f.write(audio_chunk)
+
+            # Parameters override config values
+            config = TTSConfig(format="mp3", latency="balanced")
+            async with aiofiles.open("output.wav", "wb") as f:
+                async for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    format="wav",  # Parameter wins
+                    config=config
+                ):
                     await f.write(audio_chunk)
             ```
         """
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
+
+        # Apply direct parameters (always override config when provided)
+        if reference_id is not None:
+            tts_request.reference_id = reference_id
+
+        if references is not None:
+            tts_request.references = references
+
+        if format is not None:
+            tts_request.format = format
+
+        if latency is not None:
+            tts_request.latency = latency
+
+        if speed is not None:
+            tts_request.prosody = Prosody.from_speed_override(
+                speed, base=config.prosody
+            )
 
         ws: AsyncWebSocketSession
         async with aconnect_ws(
