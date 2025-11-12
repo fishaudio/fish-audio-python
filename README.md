@@ -1,205 +1,217 @@
 # Fish Audio Python SDK
 
-To provide convenient Python program integration for https://docs.fish.audio.
+[![PyPI version](https://badge.fury.io/py/fish-audio-sdk.svg)](https://badge.fury.io/py/fish-audio-sdk)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/fish-audio-sdk)](https://pypi.org/project/fish-audio-sdk/)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/fishaudio/fish-audio-python/ci.yml?branch=main)](https://github.com/fishaudio/fish-audio-python/actions)
+[![codecov](https://codecov.io/gh/fishaudio/fish-audio-python/branch/main/graph/badge.svg)](https://codecov.io/gh/fishaudio/fish-audio-python)
+[![Python Version](https://img.shields.io/pypi/pyversions/fish-audio-sdk)](https://pypi.org/project/fish-audio-sdk/)
+[![License](https://img.shields.io/github/license/fishaudio/fish-audio-python)](https://github.com/fishaudio/fish-audio-python/blob/main/LICENSE)
 
-## Install
+The official Python library for the Fish Audio API - AI-powered text-to-speech, voice cloning, and speech recognition.
+
+[Documentation](https://docs.fish.audio) | [API Reference](https://docs.fish.audio) | [Examples](./examples/) | [Discord](https://fish.audio)
+
+---
+
+## Important: New API Available
+
+> **We've released a major update to the Fish Audio Python SDK!**
+>
+> The new API (`fishaudio` module) offers improved ergonomics, better type safety, and enhanced features. The legacy SDK (`fish_audio_sdk` module) continues to be supported for existing projects, but we recommend using the new API for all new development.
+>
+> **Migration:** Both APIs are available in the same package. You can migrate at your own pace. See our [Migration Guide](https://docs.fish.audio) for details.
+
+---
+
+## Quick Start
+
+### Installation
 
 ```bash
 pip install fish-audio-sdk
 ```
-> [!NOTE]
-> The new release has not officially been released yet - please see legacy SDK documentation for now.
 
-## Usage
+### Basic Usage
 
-### New SDK (Recommended)
+```python
+from fishaudio import FishAudio
+from fishaudio.utils import save
 
-The new SDK uses the `fishaudio` module:
+# Set your API key via environment variable: export FISH_AUDIO_API_KEY="your-api-key"
+# Or pass it directly: FishAudio(api_key="your-api-key")
+client = FishAudio()
+
+# Convert text to speech
+audio = client.tts.convert(text="Hello from Fish Audio!")
+save(audio, "output.mp3")
+```
+
+[Get your API key](https://fish.audio) | [Full Getting Started Guide](https://docs.fish.audio)
+
+---
+
+## Key Features
+
+- **Text-to-Speech** - Natural-sounding voice synthesis with multiple voice options
+- **Voice Cloning** - Create custom voices using reference audio samples
+- **Real-time Streaming** - Low-latency audio generation via WebSocket connections
+- **Speech-to-Text (ASR)** - Accurate automatic speech recognition with language detection
+- **Voice Management** - Create, update, and organize custom voice models
+- **Sync and Async APIs** - Full support for both synchronous and asynchronous operations
+- **Type Safety** - Complete type hints with Pydantic models throughout
+
+---
+
+## Examples
+
+### Text-to-Speech
+
+```python
+from fishaudio import FishAudio
+from fishaudio.utils import save
+
+client = FishAudio()
+audio = client.tts.convert(text="Hello, world!")
+save(audio, "output.mp3")
+```
+
+### Voice Cloning with Reference Audio
 
 ```python
 from fishaudio import FishAudio
 
-client = FishAudio(api_key="your_api_key")
-```
+client = FishAudio()
 
-You can customize the base URL:
-
-```python
-from fishaudio import FishAudio
-
-client = FishAudio(api_key="your_api_key", base_url="https://your-proxy-domain")
-```
-
-### Legacy SDK
-
-The legacy SDK uses the `fish_audio_sdk` module. Initialize a `Session` to use APIs. All APIs have synchronous and asynchronous versions. If you want to use the asynchronous version of the API, you only need to rewrite the original `session.api_call(...)` to `session.api_call.awaitable(...)`.
-
-```python
-from fish_audio_sdk import Session
-
-session = Session("your_api_key")
-```
-
-Sometimes, you may need to change our endpoint to another address. You can use
-
-```python
-from fish_audio_sdk import Session
-
-session = Session("your_api_key", base_url="https://your-proxy-domain")
-```
-
-### Text to speech
-
-```python
-from fish_audio_sdk import Session, TTSRequest
-
-session = Session("your_api_key")
-
-with open("r.mp3", "wb") as f:
-    for chunk in session.tts(TTSRequest(text="Hello, world!")):
-        f.write(chunk)
-```
-
-Or use async version:
-
-```python
-import asyncio
-import aiofiles
-
-from fish_audio_sdk import Session, TTSRequest
-
-session = Session("your_api_key")
-
-
-async def main():
-    async with aiofiles.open("r.mp3", "wb") as f:
-        async for chunk in session.tts.awaitable(
-            TTSRequest(text="Hello, world!"),
-        ):
-            await f.write(chunk)
-
-
-asyncio.run(main())
-```
-
-#### Reference Audio
-
-```python
-from fish_audio_sdk import TTSRequest
-
-TTSRequest(
-    text="Hello, world!",
-    reference_id="your_model_id",
-)
-```
-
-Or just use `ReferenceAudio` in `TTSRequest`:
-
-```python
-from fish_audio_sdk import TTSRequest, ReferenceAudio
-
-TTSRequest(
-    text="Hello, world!",
-    references=[
-        ReferenceAudio(
-            audio=audio_file.read(),
-            text="reference audio text",
-        )
-    ],
-)
-```
-
-### List models
-
-```python
-models = session.list_models()
-print(models)
-```
-
-Or use async version:
-
-```python
-import asyncio
-
-
-async def main():
-    models = await session.list_models.awaitable()
-    print(models)
-
-
-asyncio.run(main())
-```
-
-
-
-### Get a model info by id
-
-```python
-model = session.get_model("your_model_id")
-print(model)
-```
-
-Or use async version:
-
-```python
-import asyncio
-
-
-async def main():
-    model = await session.get_model.awaitable("your_model_id")
-    print(model)
-
-
-asyncio.run(main())
-```
-
-### Create a model
-
-```python
-model = session.create_model(
-    title="test",
-    description="test",
-    voices=[voice_file.read(), other_voice_file.read()],
-    cover_image=image_file.read(),
-)
-print(model)
-```
-
-Or use async version:
-
-```python
-import asyncio
-
-
-async def main():
-    model = await session.create_model.awaitable(
-        title="test",
-        description="test",
-        voices=[voice_file.read(), other_voice_file.read()],
-        cover_image=image_file.read(),
+# Use a reference voice for cloning
+with open("reference.wav", "rb") as f:
+    audio = client.tts.convert(
+        text="This will sound like the reference voice!",
+        reference_audio=f.read(),
+        reference_text="Transcription of the reference audio"
     )
-    print(model)
-
-
-asyncio.run(main())
 ```
 
-
-### Delete a model
+### Real-time Streaming
 
 ```python
-session.delete_model("your_model_id")
+from fishaudio import FishAudio
+from fishaudio.utils import play
+
+client = FishAudio()
+
+# Stream audio in real-time
+audio_stream = client.tts.stream(
+    text="This audio streams as it's generated",
+    latency="balanced"
+)
+
+play(audio_stream)
 ```
 
-Or use async version:
+### Speech Recognition (ASR)
+
+```python
+from fishaudio import FishAudio
+
+client = FishAudio()
+
+# Transcribe audio to text
+with open("audio.wav", "rb") as f:
+    result = client.asr.transcribe(audio=f.read())
+    print(result.text)
+```
+
+### List and Filter Voices
+
+```python
+from fishaudio import FishAudio
+
+client = FishAudio()
+
+# List available voices
+voices = client.voices.list(language="en")
+
+for voice in voices:
+    print(f"{voice.title} - {voice.id}")
+```
+
+### Async Usage
 
 ```python
 import asyncio
-
+from fishaudio import AsyncFishAudio
 
 async def main():
-    await session.delete_model.awaitable("your_model_id")
+    client = AsyncFishAudio()
 
+    audio = await client.tts.convert(text="Async text-to-speech!")
+    # Process audio...
 
 asyncio.run(main())
 ```
+
+### Check Account Credits
+
+```python
+from fishaudio import FishAudio
+
+client = FishAudio()
+credits = client.account.get_credits()
+print(f"Remaining credits: {credits.credit}")
+```
+
+[More examples in /examples directory](./examples/)
+
+---
+
+## Documentation
+
+- [API Reference](https://docs.fish.audio) - Complete API documentation with all parameters and options
+- [Tutorials & Guides](https://docs.fish.audio) - Step-by-step tutorials for common use cases
+- [Examples](./examples/) - Sample code demonstrating various features
+- [Migration Guide](https://docs.fish.audio) - Guide for upgrading from the legacy SDK
+
+---
+
+## Requirements
+
+- Python 3.9 or higher
+- Fish Audio API key - [Get one here](https://fish.audio)
+
+### Optional Dependencies
+
+For audio playback utilities:
+
+```bash
+pip install fish-audio-sdk[utils]
+```
+
+This installs `sounddevice` and `soundfile` for the `play()` utility function.
+
+---
+
+## Community & Support
+
+- [Discord Community](https://fish.audio) - Join our community for discussions and support
+- [GitHub Issues](https://github.com/fishaudio/fish-audio-python/issues) - Report bugs or request features
+- [Documentation](https://docs.fish.audio) - Comprehensive guides and API reference
+
+---
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Legacy SDK
+
+The legacy `fish_audio_sdk` module is still available for existing projects:
+
+```python
+from fish_audio_sdk import Session
+
+session = Session("your_api_key")
+```
+
+We recommend migrating to the new `fishaudio` module for new projects. See our [Migration Guide](https://docs.fish.audio) for assistance.
