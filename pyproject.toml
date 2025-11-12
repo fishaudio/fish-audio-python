@@ -1,6 +1,6 @@
 [project]
 name = "fish-audio-sdk"
-version = "1.0.0"
+version = "1.0.0rc1"
 description = "The official Python library for the Fish Audio API"
 authors = [
     {name = "abersheeran", email = "me@abersheeran.com"},
