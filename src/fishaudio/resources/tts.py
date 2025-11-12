@@ -78,7 +78,7 @@ class TTSClient:
             text: Text to synthesize
             reference_id: Voice reference ID (overrides config.reference_id if provided)
             references: Reference audio samples (overrides config.references if provided)
-            format: Audio format - "mp3", "wav", or "pcm" (overrides config.format if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
@@ -187,7 +187,7 @@ class TTSClient:
             text_stream: Iterator of text chunks to stream
             reference_id: Voice reference ID (overrides config.reference_id if provided)
             references: Reference audio samples (overrides config.references if provided)
-            format: Audio format - "mp3", "wav", or "pcm" (overrides config.format if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
@@ -327,7 +327,7 @@ class AsyncTTSClient:
             text: Text to synthesize
             reference_id: Voice reference ID (overrides config.reference_id if provided)
             references: Reference audio samples (overrides config.references if provided)
-            format: Audio format - "mp3", "wav", or "pcm" (overrides config.format if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
@@ -435,7 +435,7 @@ class AsyncTTSClient:
             text_stream: Async iterator of text chunks to stream
             reference_id: Voice reference ID (overrides config.reference_id if provided)
             references: Reference audio samples (overrides config.references if provided)
-            format: Audio format - "mp3", "wav", or "pcm" (overrides config.format if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)

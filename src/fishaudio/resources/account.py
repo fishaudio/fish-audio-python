@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from ..core import AsyncClientWrapper, ClientWrapper, RequestOptions
+from ..core import OMIT, AsyncClientWrapper, ClientWrapper, RequestOptions
 from ..types import Credits, Package
 
 
@@ -15,12 +15,14 @@ class AccountClient:
     def get_credits(
         self,
         *,
+        check_free_credit: Optional[bool] = OMIT,
         request_options: Optional[RequestOptions] = None,
     ) -> Credits:
         """
         Get API credit balance.
 
         Args:
+            check_free_credit: Whether to check free credit availability
             request_options: Request-level overrides
 
         Returns:
@@ -31,11 +33,21 @@ class AccountClient:
             client = FishAudio(api_key="...")
             credits = client.account.get_credits()
             print(f"Available credits: {float(credits.credit)}")
+
+            # Check free credit availability
+            credits = client.account.get_credits(check_free_credit=True)
+            if credits.has_free_credit:
+                print("Free credits available!")
             ```
         """
+        params = {}
+        if check_free_credit is not OMIT:
+            params["check_free_credit"] = check_free_credit
+
         response = self._client.request(
             "GET",
             "/wallet/self/api-credit",
+            params=params,
             request_options=request_options,
         )
         return Credits.model_validate(response.json())
@@ -78,12 +90,14 @@ class AsyncAccountClient:
     async def get_credits(
         self,
         *,
+        check_free_credit: Optional[bool] = OMIT,
         request_options: Optional[RequestOptions] = None,
     ) -> Credits:
         """
         Get API credit balance (async).
 
         Args:
+            check_free_credit: Whether to check free credit availability
             request_options: Request-level overrides
 
         Returns:
@@ -94,11 +108,21 @@ class AsyncAccountClient:
             client = AsyncFishAudio(api_key="...")
             credits = await client.account.get_credits()
             print(f"Available credits: {float(credits.credit)}")
+
+            # Check free credit availability
+            credits = await client.account.get_credits(check_free_credit=True)
+            if credits.has_free_credit:
+                print("Free credits available!")
             ```
         """
+        params = {}
+        if check_free_credit is not OMIT:
+            params["check_free_credit"] = check_free_credit
+
         response = await self._client.request(
             "GET",
             "/wallet/self/api-credit",
+            params=params,
             request_options=request_options,
         )
         return Credits.model_validate(response.json())

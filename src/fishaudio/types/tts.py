@@ -4,7 +4,7 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from .shared import LatencyMode
+from .shared import AudioFormat, LatencyMode
 
 
 class ReferenceAudio(BaseModel):
@@ -17,8 +17,8 @@ class ReferenceAudio(BaseModel):
 class Prosody(BaseModel):
     """Speech prosody settings (speed and volume)."""
 
-    speed: float = 1.0
-    volume: float = 0.0
+    speed: Annotated[float, Field(ge=0.5, le=2.0)] = 1.0
+    volume: Annotated[float, Field(ge=-20.0, le=20.0)] = 0.0
 
     @classmethod
     def from_speed_override(
@@ -48,7 +48,7 @@ class TTSConfig(BaseModel):
     """
 
     # Audio output settings
-    format: Literal["wav", "pcm", "mp3"] = "mp3"
+    format: AudioFormat = "mp3"
     sample_rate: Optional[int] = None
     mp3_bitrate: Literal[64, 128, 192] = 128
     opus_bitrate: Literal[-1000, 24, 32, 48, 64] = 32
@@ -78,7 +78,7 @@ class TTSRequest(BaseModel):
 
     text: str
     chunk_length: Annotated[int, Field(ge=100, le=300, strict=True)] = 200
-    format: Literal["wav", "pcm", "mp3"] = "mp3"
+    format: AudioFormat = "mp3"
     sample_rate: Optional[int] = None
     mp3_bitrate: Literal[64, 128, 192] = 128
     opus_bitrate: Literal[-1000, 24, 32, 48, 64] = 32

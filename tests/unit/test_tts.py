@@ -314,6 +314,19 @@ class TestTTSClient:
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert payload["format"] == "wav"
 
+    def test_convert_with_opus_format(self, tts_client, mock_client_wrapper):
+        """Test TTS with opus format."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        list(tts_client.convert(text="Hello", format="opus"))
+
+        # Verify opus format in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["format"] == "opus"
+
     def test_convert_with_latency_parameter(self, tts_client, mock_client_wrapper):
         """Test TTS with latency as direct parameter."""
         mock_response = Mock()
