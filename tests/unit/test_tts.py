@@ -359,7 +359,7 @@ class TestTTSClient:
     def test_convert_parameter_speed_overrides_config_prosody(
         self, tts_client, mock_client_wrapper
     ):
-        """Test that parameter speed overrides config.prosody."""
+        """Test that parameter speed overrides config.prosody speed but preserves volume."""
         mock_response = Mock()
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
@@ -367,11 +367,11 @@ class TestTTSClient:
         config = TTSConfig(prosody=Prosody(speed=2.0, volume=0.5))
         list(tts_client.convert(text="Hello", speed=1.5, config=config))
 
-        # Verify parameter speed takes precedence
+        # Verify parameter speed takes precedence but volume is preserved
         call_args = mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert payload["prosody"]["speed"] == 1.5
-        # Note: volume from config.prosody is lost when speed parameter is used
+        assert payload["prosody"]["volume"] == 0.5  # Preserved from config!
 
     def test_convert_combined_convenience_parameters(
         self, tts_client, mock_client_wrapper
@@ -721,7 +721,7 @@ class TestAsyncTTSClient:
     async def test_convert_parameter_speed_overrides_config_prosody(
         self, async_tts_client, async_mock_client_wrapper
     ):
-        """Test that parameter speed overrides config.prosody (async)."""
+        """Test that parameter speed overrides config.prosody speed but preserves volume (async)."""
         mock_response = Mock()
 
         async def async_iter_bytes():
@@ -737,11 +737,11 @@ class TestAsyncTTSClient:
         ):
             audio_chunks.append(chunk)
 
-        # Verify parameter speed takes precedence
+        # Verify parameter speed takes precedence but volume is preserved
         call_args = async_mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert payload["prosody"]["speed"] == 1.5
-        # Note: volume from config.prosody is lost when speed parameter is used
+        assert payload["prosody"]["volume"] == 0.5  # Preserved from config!
 
     @pytest.mark.asyncio
     async def test_convert_combined_convenience_parameters(

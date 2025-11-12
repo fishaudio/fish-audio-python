@@ -147,7 +147,7 @@ class TTSClient:
             request.latency = latency
 
         if speed is not None:
-            request.prosody = Prosody(speed=speed)
+            request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
 
         payload = request.model_dump(exclude_none=True)
 
@@ -263,7 +263,9 @@ class TTSClient:
             tts_request.latency = latency
 
         if speed is not None:
-            tts_request.prosody = Prosody(speed=speed)
+            tts_request.prosody = Prosody.from_speed_override(
+                speed, base=config.prosody
+            )
 
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -394,7 +396,7 @@ class AsyncTTSClient:
             request.latency = latency
 
         if speed is not None:
-            request.prosody = Prosody(speed=speed)
+            request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
 
         payload = request.model_dump(exclude_none=True)
 
@@ -508,7 +510,9 @@ class AsyncTTSClient:
             tts_request.latency = latency
 
         if speed is not None:
-            tts_request.prosody = Prosody(speed=speed)
+            tts_request.prosody = Prosody.from_speed_override(
+                speed, base=config.prosody
+            )
 
         ws: AsyncWebSocketSession
         async with aconnect_ws(

@@ -20,6 +20,24 @@ class Prosody(BaseModel):
     speed: float = 1.0
     volume: float = 0.0
 
+    @classmethod
+    def from_speed_override(
+        cls, speed: float, base: Optional["Prosody"] = None
+    ) -> "Prosody":
+        """
+        Create Prosody with speed override, preserving volume from base.
+
+        Args:
+            speed: Speed value to use
+            base: Base prosody to preserve volume from (if any)
+
+        Returns:
+            New Prosody instance with overridden speed
+        """
+        if base:
+            return cls(speed=speed, volume=base.volume)
+        return cls(speed=speed)
+
 
 class TTSConfig(BaseModel):
     """
