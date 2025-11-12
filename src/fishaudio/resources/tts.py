@@ -370,7 +370,7 @@ class AsyncTTSClient:
             )
 
             # Parameters override config values
-            config = TTSConfig(format="mp3", speed=1.0)
+            config = TTSConfig(format="mp3", prosody=Prosody(speed=1.0))
             audio = await client.tts.convert(text="Hello world", format="wav", config=config)
             # Result: format="wav" (parameter wins)
 
