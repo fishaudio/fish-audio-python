@@ -1,9 +1,8 @@
 # Fish Audio Python SDK
 
-[![Official SDK](https://img.shields.io/badge/Fish_Audio-Official_SDK-21176d?logo=fishaudio&logoColor=fff&logoSize=auto)](https://fish.audio)
+[![Official SDK](https://img.shields.io/badge/Fish_Audio-Python_SDK-21176d?logo=fishaudio&logoColor=fff&logoSize=auto)](https://fish.audio)
 [![PyPI version](https://badge.fury.io/py/fish-audio-sdk.svg)](https://badge.fury.io/py/fish-audio-sdk)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/fish-audio-sdk)](https://pypi.org/project/fish-audio-sdk/)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/fishaudio/fish-audio-python/python.yml?branch=main)](https://github.com/fishaudio/fish-audio-python/actions)
 [![codecov](https://img.shields.io/codecov/c/github/fishaudio/fish-audio-python)](https://codecov.io/gh/fishaudio/fish-audio-python)
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue)](https://pypi.org/project/fish-audio-sdk/)
 [![License](https://img.shields.io/github/license/fishaudio/fish-audio-python)](https://github.com/fishaudio/fish-audio-python/blob/main/LICENSE)
