@@ -94,10 +94,10 @@ class TestTTSClient:
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert payload["reference_id"] == "voice_456"
 
-    def test_convert_config_reference_id_overrides_parameter(
+    def test_convert_parameter_reference_id_overrides_config(
         self, tts_client, mock_client_wrapper
     ):
-        """Test that config.reference_id overrides parameter reference_id."""
+        """Test that parameter reference_id overrides config.reference_id."""
         mock_response = Mock()
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
@@ -109,10 +109,10 @@ class TestTTSClient:
             )
         )
 
-        # Verify config reference_id takes precedence
+        # Verify parameter reference_id takes precedence
         call_args = mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
-        assert payload["reference_id"] == "voice_from_config"
+        assert payload["reference_id"] == "voice_from_param"
 
     def test_convert_with_references(self, tts_client, mock_client_wrapper):
         """Test TTS with reference audio samples."""
@@ -155,10 +155,10 @@ class TestTTSClient:
         assert payload["references"][0]["text"] == "Sample 1"
         assert payload["references"][1]["text"] == "Sample 2"
 
-    def test_convert_config_references_overrides_parameter(
+    def test_convert_parameter_references_overrides_config(
         self, tts_client, mock_client_wrapper
     ):
-        """Test that config.references overrides parameter references."""
+        """Test that parameter references overrides config.references."""
         mock_response = Mock()
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
@@ -169,11 +169,11 @@ class TestTTSClient:
         config = TTSConfig(references=config_refs)
         list(tts_client.convert(text="Hello", references=param_refs, config=config))
 
-        # Verify config references take precedence
+        # Verify parameter references take precedence
         call_args = mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert len(payload["references"]) == 1
-        assert payload["references"][0]["text"] == "Config"
+        assert payload["references"][0]["text"] == "Param"
 
     def test_convert_with_different_backend(self, tts_client, mock_client_wrapper):
         """Test TTS with different backend/model."""
@@ -301,6 +301,97 @@ class TestTTSClient:
 
         assert audio_chunks == []
 
+    def test_convert_with_format_parameter(self, tts_client, mock_client_wrapper):
+        """Test TTS with format as direct parameter."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        list(tts_client.convert(text="Hello", format="wav"))
+
+        # Verify format in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["format"] == "wav"
+
+    def test_convert_with_latency_parameter(self, tts_client, mock_client_wrapper):
+        """Test TTS with latency as direct parameter."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        list(tts_client.convert(text="Hello", latency="normal"))
+
+        # Verify latency in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["latency"] == "normal"
+
+    def test_convert_with_speed_parameter(self, tts_client, mock_client_wrapper):
+        """Test TTS with speed as direct parameter."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        list(tts_client.convert(text="Hello", speed=1.5))
+
+        # Verify speed creates prosody in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["prosody"]["speed"] == 1.5
+
+    def test_convert_parameter_format_overrides_config(
+        self, tts_client, mock_client_wrapper
+    ):
+        """Test that parameter format overrides config.format."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        config = TTSConfig(format="wav")
+        list(tts_client.convert(text="Hello", format="pcm", config=config))
+
+        # Verify parameter format takes precedence
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["format"] == "pcm"
+
+    def test_convert_parameter_speed_overrides_config_prosody(
+        self, tts_client, mock_client_wrapper
+    ):
+        """Test that parameter speed overrides config.prosody."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        config = TTSConfig(prosody=Prosody(speed=2.0, volume=0.5))
+        list(tts_client.convert(text="Hello", speed=1.5, config=config))
+
+        # Verify parameter speed takes precedence
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["prosody"]["speed"] == 1.5
+        # Note: volume from config.prosody is lost when speed parameter is used
+
+    def test_convert_combined_convenience_parameters(
+        self, tts_client, mock_client_wrapper
+    ):
+        """Test TTS with multiple convenience parameters combined."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        list(
+            tts_client.convert(text="Hello", format="wav", speed=1.3, latency="normal")
+        )
+
+        # Verify all parameters in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["format"] == "wav"
+        assert payload["latency"] == "normal"
+        assert payload["prosody"]["speed"] == 1.3
+
 
 class TestAsyncTTSClient:
     """Test asynchronous AsyncTTSClient."""
@@ -380,10 +471,10 @@ class TestAsyncTTSClient:
         assert payload["reference_id"] == "voice_456"
 
     @pytest.mark.asyncio
-    async def test_convert_config_reference_id_overrides_parameter(
+    async def test_convert_parameter_reference_id_overrides_config(
         self, async_tts_client, async_mock_client_wrapper
     ):
-        """Test that config.reference_id overrides parameter reference_id (async)."""
+        """Test that parameter reference_id overrides config.reference_id (async)."""
         mock_response = Mock()
 
         async def async_iter_bytes():
@@ -399,10 +490,10 @@ class TestAsyncTTSClient:
         ):
             audio_chunks.append(chunk)
 
-        # Verify config reference_id takes precedence
+        # Verify parameter reference_id takes precedence
         call_args = async_mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
-        assert payload["reference_id"] == "voice_from_config"
+        assert payload["reference_id"] == "voice_from_param"
 
     @pytest.mark.asyncio
     async def test_convert_with_references_parameter(
@@ -436,10 +527,10 @@ class TestAsyncTTSClient:
         assert payload["references"][1]["text"] == "Sample 2"
 
     @pytest.mark.asyncio
-    async def test_convert_config_references_overrides_parameter(
+    async def test_convert_parameter_references_overrides_config(
         self, async_tts_client, async_mock_client_wrapper
     ):
-        """Test that config.references overrides parameter references (async)."""
+        """Test that parameter references overrides config.references (async)."""
         mock_response = Mock()
 
         async def async_iter_bytes():
@@ -458,11 +549,11 @@ class TestAsyncTTSClient:
         ):
             audio_chunks.append(chunk)
 
-        # Verify config references take precedence
+        # Verify parameter references take precedence
         call_args = async_mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
         assert len(payload["references"]) == 1
-        assert payload["references"][0]["text"] == "Config"
+        assert payload["references"][0]["text"] == "Param"
 
     @pytest.mark.asyncio
     async def test_convert_with_prosody(
@@ -534,3 +625,146 @@ class TestAsyncTTSClient:
             audio_chunks.append(chunk)
 
         assert audio_chunks == []
+
+    @pytest.mark.asyncio
+    async def test_convert_with_format_parameter(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test async TTS with format as direct parameter."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(text="Hello", format="wav"):
+            audio_chunks.append(chunk)
+
+        # Verify format in payload
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["format"] == "wav"
+
+    @pytest.mark.asyncio
+    async def test_convert_with_latency_parameter(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test async TTS with latency as direct parameter."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(text="Hello", latency="normal"):
+            audio_chunks.append(chunk)
+
+        # Verify latency in payload
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["latency"] == "normal"
+
+    @pytest.mark.asyncio
+    async def test_convert_with_speed_parameter(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test async TTS with speed as direct parameter."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(text="Hello", speed=1.5):
+            audio_chunks.append(chunk)
+
+        # Verify speed creates prosody in payload
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["prosody"]["speed"] == 1.5
+
+    @pytest.mark.asyncio
+    async def test_convert_parameter_format_overrides_config(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test that parameter format overrides config.format (async)."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        config = TTSConfig(format="wav")
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(
+            text="Hello", format="pcm", config=config
+        ):
+            audio_chunks.append(chunk)
+
+        # Verify parameter format takes precedence
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["format"] == "pcm"
+
+    @pytest.mark.asyncio
+    async def test_convert_parameter_speed_overrides_config_prosody(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test that parameter speed overrides config.prosody (async)."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        config = TTSConfig(prosody=Prosody(speed=2.0, volume=0.5))
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(
+            text="Hello", speed=1.5, config=config
+        ):
+            audio_chunks.append(chunk)
+
+        # Verify parameter speed takes precedence
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["prosody"]["speed"] == 1.5
+        # Note: volume from config.prosody is lost when speed parameter is used
+
+    @pytest.mark.asyncio
+    async def test_convert_combined_convenience_parameters(
+        self, async_tts_client, async_mock_client_wrapper
+    ):
+        """Test async TTS with multiple convenience parameters combined."""
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            yield b"audio"
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        audio_chunks = []
+        async for chunk in async_tts_client.convert(
+            text="Hello", format="wav", speed=1.3, latency="normal"
+        ):
+            audio_chunks.append(chunk)
+
+        # Verify all parameters in payload
+        call_args = async_mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["format"] == "wav"
+        assert payload["latency"] == "normal"
+        assert payload["prosody"]["speed"] == 1.3

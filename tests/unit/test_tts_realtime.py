@@ -221,10 +221,10 @@ class TestTTSRealtimeClient:
 
     @patch("fishaudio.resources.tts.connect_ws")
     @patch("fishaudio.resources.tts.ThreadPoolExecutor")
-    def test_stream_websocket_config_reference_id_overrides_parameter(
+    def test_stream_websocket_parameter_reference_id_overrides_config(
         self, mock_executor, mock_connect_ws, tts_client, mock_client_wrapper
     ):
-        """Test that config.reference_id overrides parameter reference_id."""
+        """Test that parameter reference_id overrides config.reference_id."""
         # Setup mocks
         mock_ws = MagicMock()
         mock_ws.__enter__ = Mock(return_value=mock_ws)
@@ -254,10 +254,10 @@ class TestTTSRealtimeClient:
                 )
             )
 
-            # Verify config reference_id takes precedence
+            # Verify parameter reference_id takes precedence
             first_call = mock_ws.send_bytes.call_args_list[0]
             start_event_payload = ormsgpack.unpackb(first_call[0][0])
-            assert start_event_payload["request"]["reference_id"] == "voice_from_config"
+            assert start_event_payload["request"]["reference_id"] == "voice_from_param"
 
     @patch("fishaudio.resources.tts.connect_ws")
     @patch("fishaudio.resources.tts.ThreadPoolExecutor")
@@ -303,10 +303,10 @@ class TestTTSRealtimeClient:
 
     @patch("fishaudio.resources.tts.connect_ws")
     @patch("fishaudio.resources.tts.ThreadPoolExecutor")
-    def test_stream_websocket_config_references_overrides_parameter(
+    def test_stream_websocket_parameter_references_overrides_config(
         self, mock_executor, mock_connect_ws, tts_client, mock_client_wrapper
     ):
-        """Test that config.references overrides parameter references."""
+        """Test that parameter references overrides config.references."""
         # Setup mocks
         mock_ws = MagicMock()
         mock_ws.__enter__ = Mock(return_value=mock_ws)
@@ -339,11 +339,11 @@ class TestTTSRealtimeClient:
                 )
             )
 
-            # Verify config references take precedence
+            # Verify parameter references take precedence
             first_call = mock_ws.send_bytes.call_args_list[0]
             start_event_payload = ormsgpack.unpackb(first_call[0][0])
             assert len(start_event_payload["request"]["references"]) == 1
-            assert start_event_payload["request"]["references"][0]["text"] == "Config"
+            assert start_event_payload["request"]["references"][0]["text"] == "Param"
 
 
 class TestAsyncTTSRealtimeClient:
@@ -535,10 +535,10 @@ class TestAsyncTTSRealtimeClient:
 
     @pytest.mark.asyncio
     @patch("fishaudio.resources.tts.aconnect_ws")
-    async def test_stream_websocket_config_reference_id_overrides_parameter(
+    async def test_stream_websocket_parameter_reference_id_overrides_config(
         self, mock_aconnect_ws, async_tts_client, async_mock_client_wrapper
     ):
-        """Test that config.reference_id overrides parameter reference_id (async)."""
+        """Test that parameter reference_id overrides config.reference_id (async)."""
         # Setup mocks
         mock_ws = MagicMock()
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
@@ -564,10 +564,10 @@ class TestAsyncTTSRealtimeClient:
             ):
                 audio_chunks.append(chunk)
 
-            # Verify config reference_id takes precedence
+            # Verify parameter reference_id takes precedence
             first_call = mock_ws.send_bytes.call_args_list[0]
             start_event_payload = ormsgpack.unpackb(first_call[0][0])
-            assert start_event_payload["request"]["reference_id"] == "voice_from_config"
+            assert start_event_payload["request"]["reference_id"] == "voice_from_param"
 
     @pytest.mark.asyncio
     @patch("fishaudio.resources.tts.aconnect_ws")
@@ -612,10 +612,10 @@ class TestAsyncTTSRealtimeClient:
 
     @pytest.mark.asyncio
     @patch("fishaudio.resources.tts.aconnect_ws")
-    async def test_stream_websocket_config_references_overrides_parameter(
+    async def test_stream_websocket_parameter_references_overrides_config(
         self, mock_aconnect_ws, async_tts_client, async_mock_client_wrapper
     ):
-        """Test that config.references overrides parameter references (async)."""
+        """Test that parameter references overrides config.references (async)."""
         # Setup mocks
         mock_ws = MagicMock()
         mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
@@ -644,8 +644,8 @@ class TestAsyncTTSRealtimeClient:
             ):
                 audio_chunks.append(chunk)
 
-            # Verify config references take precedence
+            # Verify parameter references take precedence
             first_call = mock_ws.send_bytes.call_args_list[0]
             start_event_payload = ormsgpack.unpackb(first_call[0][0])
             assert len(start_event_payload["request"]["references"]) == 1
-            assert start_event_payload["request"]["references"][0]["text"] == "Config"
+            assert start_event_payload["request"]["references"][0]["text"] == "Param"
