@@ -16,7 +16,7 @@ For new projects, use the `fishaudio` module. For existing projects using the le
 
 ## API Documentation
 
-See the Python API Documentation and Reference
+For complete documentation and API reference, visit the [Python SDK Guide](https://docs.fish.audio/developer-guide/sdk-guide/python/) and [API Reference](https://docs.fish.audio/api-reference/sdk/python/).
 
 ## Installation
 
