@@ -53,10 +53,10 @@ class BaseClientWrapper:
         api_key: Optional[str] = None,
         base_url: str = "https://api.fish.audio",
     ):
-        self.api_key = api_key or os.getenv("FISH_AUDIO_API_KEY")
+        self.api_key = api_key or os.getenv("FISH_API_KEY")
         if not self.api_key:
             raise ValueError(
-                "API key must be provided either as argument or via FISH_AUDIO_API_KEY environment variable"
+                "API key must be provided either as argument or via FISH_API_KEY environment variable"
             )
         self.base_url = base_url
 

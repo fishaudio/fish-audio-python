@@ -10,7 +10,7 @@ Requirements:
     pip install fishaudio
 
 Environment Setup:
-    export FISH_AUDIO_API_KEY="your_api_key_here"
+    export FISH_API_KEY="your_api_key_here"
     # Or pass api_key directly to the client
 
 Expected Output:
@@ -25,7 +25,7 @@ from fishaudio.utils import save
 
 def main():
     # Initialize the client with your API key
-    # Option 1: Use environment variable FISH_AUDIO_API_KEY
+    # Option 1: Use environment variable FISH_API_KEY
     # Option 2: Pass api_key directly: FishAudio(api_key="your_key")
     client = FishAudio()
 
@@ -52,4 +52,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         print("\nMake sure you have set your API key:")
-        print("  export FISH_AUDIO_API_KEY='your_api_key'")
+        print("  export FISH_API_KEY='your_api_key'")

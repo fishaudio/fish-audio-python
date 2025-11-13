@@ -83,7 +83,7 @@ jobs:
       - name: Run integration tests
         run: uv run pytest tests/integration/ -v
         env:
-          FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
+          FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
 
       - name: Upload Test Artifacts
         uses: actions/upload-artifact@v4

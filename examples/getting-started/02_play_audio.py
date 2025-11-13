@@ -19,7 +19,7 @@ Requirements:
     #   pip install sounddevice soundfile
 
 Environment Setup:
-    export FISH_AUDIO_API_KEY="your_api_key_here"
+    export FISH_API_KEY="your_api_key_here"
 
 Expected Output:
     - Plays the generated audio through your speakers
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error: {e}")
         print("\nTroubleshooting:")
-        print("1. Make sure your API key is set: export FISH_AUDIO_API_KEY='your_key'")
+        print("1. Make sure your API key is set: export FISH_API_KEY='your_key'")
         print("2. Install ffmpeg for audio playback:")
         print("   - macOS: brew install ffmpeg")
         print("   - Ubuntu: sudo apt install ffmpeg")

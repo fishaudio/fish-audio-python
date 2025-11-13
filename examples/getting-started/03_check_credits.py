@@ -13,7 +13,7 @@ Requirements:
     pip install fishaudio
 
 Environment Setup:
-    export FISH_AUDIO_API_KEY="your_api_key_here"
+    export FISH_API_KEY="your_api_key_here"
 
 Expected Output:
     - Displays account credit balance
@@ -84,7 +84,7 @@ def check_api_setup():
         print(f"  Error: {e}")
         print("\nPlease check:")
         print("  1. Your API key is correct")
-        print("  2. Environment variable is set: export FISH_AUDIO_API_KEY='your_key'")
+        print("  2. Environment variable is set: export FISH_API_KEY='your_key'")
         print("  3. You have an active internet connection")
         return False
 
@@ -100,6 +100,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nError: {e}")
         print("\nMake sure you have set your API key:")
-        print("  export FISH_AUDIO_API_KEY='your_api_key'")
+        print("  export FISH_API_KEY='your_api_key'")
         print("\nOr pass it directly when creating the client:")
         print("  client = FishAudio(api_key='your_api_key')")

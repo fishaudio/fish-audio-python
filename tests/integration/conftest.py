@@ -21,9 +21,9 @@ TEST_REFERENCE_ID = "ca3007f96ae7499ab87d27ea3599956a"
 @pytest.fixture
 def api_key():
     """Get API key from environment."""
-    key = os.getenv("FISH_AUDIO_API_KEY")
+    key = os.getenv("FISH_API_KEY")
     if not key:
-        pytest.skip("No API key available (set FISH_AUDIO_API_KEY)")
+        pytest.skip("No API key available (set FISH_API_KEY)")
     return key
 
 

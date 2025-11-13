@@ -39,7 +39,7 @@ The client will need to be configured with an API key, which you can obtain from
 ```python
 from fishaudio import FishAudio
 
-client = FishAudio() # Automatically reads from the FISH_AUDIO_API_KEY environment variable
+client = FishAudio() # Automatically reads from the FISH_API_KEY environment variable
 
 client = FishAudio(api_key="your-api-key") # Or provide the API key directly
 ```
