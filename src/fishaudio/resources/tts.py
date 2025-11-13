@@ -9,6 +9,7 @@ from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, conne
 
 from .realtime import aiter_websocket_audio, iter_websocket_audio
 from ..core import AsyncClientWrapper, ClientWrapper, RequestOptions
+from ..core.iterators import AsyncAudioStream, AudioStream
 from ..types import (
     AudioFormat,
     CloseEvent,
@@ -58,7 +59,7 @@ class TTSClient:
     def __init__(self, client_wrapper: ClientWrapper):
         self._client = client_wrapper
 
-    def convert(
+    def stream(
         self,
         *,
         text: str,
@@ -70,9 +71,9 @@ class TTSClient:
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
         request_options: Optional[RequestOptions] = None,
-    ) -> Iterator[bytes]:
+    ) -> AudioStream:
         """
-        Convert text to speech.
+        Stream text-to-speech audio chunks.
 
         Args:
             text: Text to synthesize
@@ -86,48 +87,20 @@ class TTSClient:
             request_options: Request-level overrides
 
         Returns:
-            Iterator of audio bytes
+            AudioStream object that can be iterated for audio chunks
 
         Example:
             ```python
-            from fishaudio import FishAudio, TTSConfig, ReferenceAudio
+            from fishaudio import FishAudio
 
             client = FishAudio(api_key="...")
 
-            # Simple usage with defaults
-            audio = client.tts.convert(text="Hello world")
+            # Stream and process chunks
+            for chunk in client.tts.stream(text="Hello world"):
+                process_audio_chunk(chunk)
 
-            # With format parameter
-            audio = client.tts.convert(text="Hello world", format="wav")
-
-            # With speed parameter
-            audio = client.tts.convert(text="Hello world", speed=1.5)
-
-            # With reference_id parameter
-            audio = client.tts.convert(text="Hello world", reference_id="your_model_id")
-
-            # With references parameter
-            audio = client.tts.convert(
-                text="Hello world",
-                references=[ReferenceAudio(audio=audio_bytes, text="sample")]
-            )
-
-            # Combine multiple parameters
-            audio = client.tts.convert(
-                text="Hello world",
-                format="wav",
-                speed=1.2,
-                latency="normal"
-            )
-
-            # Parameters override config values
-            config = TTSConfig(format="mp3", prosody=Prosody(speed=1.0))
-            audio = client.tts.convert(text="Hello world", format="wav", config=config)
-            # Result: format="wav" (parameter wins)
-
-            with open("output.mp3", "wb") as f:
-                for chunk in audio:
-                    f.write(chunk)
+            # Or collect all at once
+            audio = client.tts.stream(text="Hello world").collect()
             ```
         """
         # Build request payload from config
@@ -160,10 +133,75 @@ class TTSClient:
             request_options=request_options,
         )
 
-        # Stream response chunks
-        for chunk in response.iter_bytes():
-            if chunk:
-                yield chunk
+        # Create generator and wrap with AudioStream
+        def _stream():
+            for chunk in response.iter_bytes():
+                if chunk:
+                    yield chunk
+
+        return AudioStream(_stream())
+
+    def convert(
+        self,
+        *,
+        text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[List[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
+        config: TTSConfig = TTSConfig(),
+        model: Model = "s1",
+        request_options: Optional[RequestOptions] = None,
+    ) -> bytes:
+        """
+        Convert text to speech and return complete audio as bytes.
+
+        This is a convenience method that streams all audio chunks and combines them.
+        For chunk-by-chunk processing, use stream() instead.
+
+        Args:
+            text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            config: TTS configuration (audio settings, voice, model parameters)
+            model: TTS model to use
+            request_options: Request-level overrides
+
+        Returns:
+            Complete audio as bytes
+
+        Example:
+            ```python
+            from fishaudio import FishAudio
+            from fishaudio.utils import play, save
+
+            client = FishAudio(api_key="...")
+
+            # Get complete audio
+            audio = client.tts.convert(text="Hello world")
+
+            # Play it
+            play(audio)
+
+            # Or save it
+            save(audio, "output.mp3")
+            ```
+        """
+        return self.stream(
+            text=text,
+            reference_id=reference_id,
+            references=references,
+            format=format,
+            latency=latency,
+            speed=speed,
+            config=config,
+            model=model,
+            request_options=request_options,
+        ).collect()
 
     def stream_websocket(
         self,
@@ -307,7 +345,7 @@ class AsyncTTSClient:
     def __init__(self, client_wrapper: AsyncClientWrapper):
         self._client = client_wrapper
 
-    async def convert(
+    async def stream(
         self,
         *,
         text: str,
@@ -319,9 +357,9 @@ class AsyncTTSClient:
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
         request_options: Optional[RequestOptions] = None,
-    ):
+    ) -> AsyncAudioStream:
         """
-        Convert text to speech (async).
+        Stream text-to-speech audio chunks (async).
 
         Args:
             text: Text to synthesize
@@ -335,48 +373,20 @@ class AsyncTTSClient:
             request_options: Request-level overrides
 
         Returns:
-            Async iterator of audio bytes
+            AsyncAudioStream object that can be iterated for audio chunks
 
         Example:
             ```python
-            from fishaudio import AsyncFishAudio, TTSConfig, ReferenceAudio
+            from fishaudio import AsyncFishAudio
 
             client = AsyncFishAudio(api_key="...")
 
-            # Simple usage with defaults
-            audio = await client.tts.convert(text="Hello world")
+            # Stream and process chunks
+            async for chunk in client.tts.stream(text="Hello world"):
+                await process_audio_chunk(chunk)
 
-            # With format parameter
-            audio = await client.tts.convert(text="Hello world", format="wav")
-
-            # With speed parameter
-            audio = await client.tts.convert(text="Hello world", speed=1.5)
-
-            # With reference_id parameter
-            audio = await client.tts.convert(text="Hello world", reference_id="your_model_id")
-
-            # With references parameter
-            audio = await client.tts.convert(
-                text="Hello world",
-                references=[ReferenceAudio(audio=audio_bytes, text="sample")]
-            )
-
-            # Combine multiple parameters
-            audio = await client.tts.convert(
-                text="Hello world",
-                format="wav",
-                speed=1.2,
-                latency="normal"
-            )
-
-            # Parameters override config values
-            config = TTSConfig(format="mp3", prosody=Prosody(speed=1.0))
-            audio = await client.tts.convert(text="Hello world", format="wav", config=config)
-            # Result: format="wav" (parameter wins)
-
-            async with aiofiles.open("output.mp3", "wb") as f:
-                async for chunk in audio:
-                    await f.write(chunk)
+            # Or collect all at once
+            audio = await client.tts.stream(text="Hello world").collect()
             ```
         """
         # Build request payload from config
@@ -409,10 +419,76 @@ class AsyncTTSClient:
             request_options=request_options,
         )
 
-        # Stream response chunks
-        async for chunk in response.aiter_bytes():
-            if chunk:
-                yield chunk
+        # Create async generator and wrap with AsyncAudioStream
+        async def _stream():
+            async for chunk in response.aiter_bytes():
+                if chunk:
+                    yield chunk
+
+        return AsyncAudioStream(_stream())
+
+    async def convert(
+        self,
+        *,
+        text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[List[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
+        config: TTSConfig = TTSConfig(),
+        model: Model = "s1",
+        request_options: Optional[RequestOptions] = None,
+    ) -> bytes:
+        """
+        Convert text to speech and return complete audio as bytes (async).
+
+        This is a convenience method that streams all audio chunks and combines them.
+        For chunk-by-chunk processing, use stream() instead.
+
+        Args:
+            text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            config: TTS configuration (audio settings, voice, model parameters)
+            model: TTS model to use
+            request_options: Request-level overrides
+
+        Returns:
+            Complete audio as bytes
+
+        Example:
+            ```python
+            from fishaudio import AsyncFishAudio
+            from fishaudio.utils import play, save
+
+            client = AsyncFishAudio(api_key="...")
+
+            # Get complete audio
+            audio = await client.tts.convert(text="Hello world")
+
+            # Play it
+            play(audio)
+
+            # Or save it
+            save(audio, "output.mp3")
+            ```
+        """
+        stream = await self.stream(
+            text=text,
+            reference_id=reference_id,
+            references=references,
+            format=format,
+            latency=latency,
+            speed=speed,
+            config=config,
+            model=model,
+            request_options=request_options,
+        )
+        return await stream.collect()
 
     async def stream_websocket(
         self,

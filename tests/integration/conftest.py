@@ -55,17 +55,20 @@ def save_audio():
         A callable that takes audio chunks and filename and saves to output/
     """
 
-    def _save(audio_chunks: list[bytes], filename: str) -> Path:
-        """Save audio chunks to output directory.
+    def _save(audio: bytes | list[bytes], filename: str) -> Path:
+        """Save audio to output directory.
 
         Args:
-            audio_chunks: List of audio byte chunks
+            audio: Audio bytes or list of audio byte chunks
             filename: Name of the output file (including extension)
 
         Returns:
             Path to the saved file
         """
-        complete_audio = b"".join(audio_chunks)
+        if isinstance(audio, bytes):
+            complete_audio = audio
+        else:
+            complete_audio = b"".join(audio)
         output_file = OUTPUT_DIR / filename
         output_file.write_bytes(complete_audio)
         return output_file

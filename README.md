@@ -91,9 +91,23 @@ with open("reference.wav", "rb") as f:
     )
 ```
 
-#### Real-time Streaming
+#### Streaming Audio Chunks
 
-For low-latency and real-time applications, stream audio as text is processed:
+For processing audio chunks as they're generated:
+
+```python
+# Stream and process audio chunks
+for chunk in client.tts.stream(text="Long text content..."):
+    # Process each chunk as it arrives
+    send_to_websocket(chunk)
+
+# Or collect all chunks
+audio = client.tts.stream(text="Hello!").collect()
+```
+
+#### Real-time WebSocket Streaming
+
+For low-latency bidirectional streaming where you send text chunks and receive audio in real-time:
 
 ```python
 from fishaudio import FishAudio

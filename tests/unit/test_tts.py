@@ -40,15 +40,15 @@ def async_tts_client(async_mock_client_wrapper):
 class TestTTSClient:
     """Test synchronous TTSClient."""
 
-    def test_convert_basic(self, tts_client, mock_client_wrapper):
-        """Test basic TTS conversion."""
+    def test_stream_basic(self, tts_client, mock_client_wrapper):
+        """Test basic TTS streaming."""
         # Setup mock response with audio chunks
         mock_response = Mock()
         mock_response.iter_bytes.return_value = iter([b"chunk1", b"chunk2", b"chunk3"])
         mock_client_wrapper.request.return_value = mock_response
 
-        # Call convert
-        audio_chunks = list(tts_client.convert(text="Hello world"))
+        # Call stream
+        audio_chunks = list(tts_client.stream(text="Hello world"))
 
         # Verify we got chunks back
         assert audio_chunks == [b"chunk1", b"chunk2", b"chunk3"]
@@ -67,6 +67,23 @@ class TestTTSClient:
         # Check payload was msgpack encoded
         assert "content" in call_args[1]
 
+    def test_convert_basic(self, tts_client, mock_client_wrapper):
+        """Test basic TTS conversion returns bytes."""
+        # Setup mock response with audio chunks
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"chunk1", b"chunk2", b"chunk3"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        # Call convert
+        audio = tts_client.convert(text="Hello world")
+
+        # Verify we got complete audio as bytes
+        assert audio == b"chunk1chunk2chunk3"
+        assert isinstance(audio, bytes)
+
+        # Verify request was made correctly
+        mock_client_wrapper.request.assert_called_once()
+
     def test_convert_with_reference_id(self, tts_client, mock_client_wrapper):
         """Test TTS with reference voice ID."""
         mock_response = Mock()
@@ -74,7 +91,7 @@ class TestTTSClient:
         mock_client_wrapper.request.return_value = mock_response
 
         config = TTSConfig(reference_id="voice_123")
-        list(tts_client.convert(text="Hello", config=config))
+        tts_client.convert(text="Hello", config=config)
 
         # Verify reference_id in payload
         call_args = mock_client_wrapper.request.call_args
@@ -87,7 +104,7 @@ class TestTTSClient:
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
 
-        list(tts_client.convert(text="Hello", reference_id="voice_456"))
+        tts_client.convert(text="Hello", reference_id="voice_456")
 
         # Verify reference_id in payload
         call_args = mock_client_wrapper.request.call_args
@@ -103,11 +120,7 @@ class TestTTSClient:
         mock_client_wrapper.request.return_value = mock_response
 
         config = TTSConfig(reference_id="voice_from_config")
-        list(
-            tts_client.convert(
-                text="Hello", reference_id="voice_from_param", config=config
-            )
-        )
+        tts_client.convert(text="Hello", reference_id="voice_from_param", config=config)
 
         # Verify parameter reference_id takes precedence
         call_args = mock_client_wrapper.request.call_args
@@ -126,7 +139,7 @@ class TestTTSClient:
         ]
 
         config = TTSConfig(references=references)
-        list(tts_client.convert(text="Hello", config=config))
+        tts_client.convert(text="Hello", config=config)
 
         # Verify references in payload
         call_args = mock_client_wrapper.request.call_args
@@ -146,7 +159,7 @@ class TestTTSClient:
             ReferenceAudio(audio=b"ref_audio_2", text="Sample 2"),
         ]
 
-        list(tts_client.convert(text="Hello", references=references))
+        tts_client.convert(text="Hello", references=references)
 
         # Verify references in payload
         call_args = mock_client_wrapper.request.call_args
@@ -167,7 +180,7 @@ class TestTTSClient:
         param_refs = [ReferenceAudio(audio=b"param_audio", text="Param")]
 
         config = TTSConfig(references=config_refs)
-        list(tts_client.convert(text="Hello", references=param_refs, config=config))
+        tts_client.convert(text="Hello", references=param_refs, config=config)
 
         # Verify parameter references take precedence
         call_args = mock_client_wrapper.request.call_args
@@ -181,7 +194,7 @@ class TestTTSClient:
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
 
-        list(tts_client.convert(text="Hello", model="s1"))
+        tts_client.convert(text="Hello", model="s1")
 
         # Verify model in headers
         call_args = mock_client_wrapper.request.call_args
@@ -196,7 +209,7 @@ class TestTTSClient:
         prosody = Prosody(speed=1.5, volume=0.5)
         config = TTSConfig(prosody=prosody)
 
-        list(tts_client.convert(text="Hello", config=config))
+        tts_client.convert(text="Hello", config=config)
 
         # Verify prosody in payload
         call_args = mock_client_wrapper.request.call_args
@@ -221,7 +234,7 @@ class TestTTSClient:
             temperature=0.8,
         )
 
-        list(tts_client.convert(text="Hello", config=config))
+        tts_client.convert(text="Hello", config=config)
 
         # Verify parameters in payload
         call_args = mock_client_wrapper.request.call_args
@@ -242,7 +255,7 @@ class TestTTSClient:
         mock_client_wrapper.request.return_value = mock_response
 
         # Call with defaults (None values should be excluded)
-        list(tts_client.convert(text="Hello"))
+        tts_client.convert(text="Hello")
 
         # Verify None params not in payload
         call_args = mock_client_wrapper.request.call_args
@@ -266,14 +279,14 @@ class TestTTSClient:
             timeout=120.0, additional_headers={"X-Custom": "value"}
         )
 
-        list(tts_client.convert(text="Hello", request_options=request_options))
+        tts_client.convert(text="Hello", request_options=request_options)
 
         # Verify request_options passed through
         call_args = mock_client_wrapper.request.call_args
         assert call_args[1]["request_options"] == request_options
 
-    def test_convert_streaming_behavior(self, tts_client, mock_client_wrapper):
-        """Test that convert returns an iterator that can be consumed."""
+    def test_stream_behavior(self, tts_client, mock_client_wrapper):
+        """Test that stream returns an iterator that can be consumed."""
         # Setup mock with multiple chunks
         mock_response = Mock()
         chunks = [b"chunk1", b"chunk2", b"chunk3", b""]  # Empty chunk should be skipped
@@ -281,11 +294,11 @@ class TestTTSClient:
         mock_client_wrapper.request.return_value = mock_response
 
         # Get iterator
-        audio_iterator = tts_client.convert(text="Hello")
+        audio_stream = tts_client.stream(text="Hello")
 
         # Consume one chunk at a time
         result = []
-        for chunk in audio_iterator:
+        for chunk in audio_stream:
             result.append(chunk)
 
         # Empty chunk should be filtered out
@@ -297,9 +310,9 @@ class TestTTSClient:
         mock_response.iter_bytes.return_value = iter([])
         mock_client_wrapper.request.return_value = mock_response
 
-        audio_chunks = list(tts_client.convert(text="Hello"))
+        audio = tts_client.convert(text="Hello")
 
-        assert audio_chunks == []
+        assert audio == b""
 
     def test_convert_with_format_parameter(self, tts_client, mock_client_wrapper):
         """Test TTS with format as direct parameter."""
@@ -307,7 +320,7 @@ class TestTTSClient:
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
 
-        list(tts_client.convert(text="Hello", format="wav"))
+        tts_client.convert(text="Hello", format="wav")
 
         # Verify format in payload
         call_args = mock_client_wrapper.request.call_args
@@ -320,7 +333,7 @@ class TestTTSClient:
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
 
-        list(tts_client.convert(text="Hello", format="opus"))
+        tts_client.convert(text="Hello", format="opus")
 
         # Verify opus format in payload
         call_args = mock_client_wrapper.request.call_args
@@ -333,7 +346,7 @@ class TestTTSClient:
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
 
-        list(tts_client.convert(text="Hello", latency="normal"))
+        tts_client.convert(text="Hello", latency="normal")
 
         # Verify latency in payload
         call_args = mock_client_wrapper.request.call_args
@@ -346,7 +359,7 @@ class TestTTSClient:
         mock_response.iter_bytes.return_value = iter([b"audio"])
         mock_client_wrapper.request.return_value = mock_response
 
-        list(tts_client.convert(text="Hello", speed=1.5))
+        tts_client.convert(text="Hello", speed=1.5)
 
         # Verify speed creates prosody in payload
         call_args = mock_client_wrapper.request.call_args
@@ -362,7 +375,7 @@ class TestTTSClient:
         mock_client_wrapper.request.return_value = mock_response
 
         config = TTSConfig(format="wav")
-        list(tts_client.convert(text="Hello", format="pcm", config=config))
+        tts_client.convert(text="Hello", format="pcm", config=config)
 
         # Verify parameter format takes precedence
         call_args = mock_client_wrapper.request.call_args
@@ -378,7 +391,7 @@ class TestTTSClient:
         mock_client_wrapper.request.return_value = mock_response
 
         config = TTSConfig(prosody=Prosody(speed=2.0, volume=0.5))
-        list(tts_client.convert(text="Hello", speed=1.5, config=config))
+        tts_client.convert(text="Hello", speed=1.5, config=config)
 
         # Verify parameter speed takes precedence but volume is preserved
         call_args = mock_client_wrapper.request.call_args
@@ -410,8 +423,8 @@ class TestAsyncTTSClient:
     """Test asynchronous AsyncTTSClient."""
 
     @pytest.mark.asyncio
-    async def test_convert_basic(self, async_tts_client, async_mock_client_wrapper):
-        """Test basic async TTS conversion."""
+    async def test_stream_basic(self, async_tts_client, async_mock_client_wrapper):
+        """Test basic async TTS streaming."""
         # Setup mock response
         mock_response = Mock()
 
@@ -422,9 +435,10 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        # Call convert and collect chunks
+        # Call stream and collect chunks
         audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello world"):
+        stream = await async_tts_client.stream(text="Hello world")
+        async for chunk in stream:
             audio_chunks.append(chunk)
 
         assert audio_chunks == [b"chunk1", b"chunk2", b"chunk3"]
@@ -435,6 +449,29 @@ class TestAsyncTTSClient:
 
         assert call_args[0][0] == "POST"
         assert call_args[0][1] == "/v1/tts"
+
+    @pytest.mark.asyncio
+    async def test_convert_basic(self, async_tts_client, async_mock_client_wrapper):
+        """Test basic async TTS conversion returns bytes."""
+        # Setup mock response
+        mock_response = Mock()
+
+        async def async_iter_bytes():
+            for chunk in [b"chunk1", b"chunk2", b"chunk3"]:
+                yield chunk
+
+        mock_response.aiter_bytes = async_iter_bytes
+        async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
+
+        # Call convert
+        audio = await async_tts_client.convert(text="Hello world")
+
+        # Verify we got complete audio as bytes
+        assert audio == b"chunk1chunk2chunk3"
+        assert isinstance(audio, bytes)
+
+        # Verify request was made
+        async_mock_client_wrapper.request.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_convert_with_reference_id(
@@ -450,9 +487,7 @@ class TestAsyncTTSClient:
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(reference_id="voice_123")
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello", config=config):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", config=config)
 
         # Verify reference_id in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -472,11 +507,7 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(
-            text="Hello", reference_id="voice_456"
-        ):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", reference_id="voice_456")
 
         # Verify reference_id in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -497,11 +528,9 @@ class TestAsyncTTSClient:
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(reference_id="voice_from_config")
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(
+        await async_tts_client.convert(
             text="Hello", reference_id="voice_from_param", config=config
-        ):
-            audio_chunks.append(chunk)
+        )
 
         # Verify parameter reference_id takes precedence
         call_args = async_mock_client_wrapper.request.call_args
@@ -526,11 +555,7 @@ class TestAsyncTTSClient:
             ReferenceAudio(audio=b"ref_audio_2", text="Sample 2"),
         ]
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(
-            text="Hello", references=references
-        ):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", references=references)
 
         # Verify references in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -556,11 +581,9 @@ class TestAsyncTTSClient:
         param_refs = [ReferenceAudio(audio=b"param_audio", text="Param")]
 
         config = TTSConfig(references=config_refs)
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(
+        await async_tts_client.convert(
             text="Hello", references=param_refs, config=config
-        ):
-            audio_chunks.append(chunk)
+        )
 
         # Verify parameter references take precedence
         call_args = async_mock_client_wrapper.request.call_args
@@ -584,9 +607,7 @@ class TestAsyncTTSClient:
         prosody = Prosody(speed=2.0, volume=1.0)
         config = TTSConfig(prosody=prosody)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello", config=config):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", config=config)
 
         # Verify prosody in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -607,9 +628,7 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello"):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello")
 
         # Verify OMIT params not in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -633,11 +652,9 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello"):
-            audio_chunks.append(chunk)
+        audio = await async_tts_client.convert(text="Hello")
 
-        assert audio_chunks == []
+        assert audio == b""
 
     @pytest.mark.asyncio
     async def test_convert_with_format_parameter(
@@ -652,9 +669,7 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello", format="wav"):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", format="wav")
 
         # Verify format in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -674,9 +689,7 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello", latency="normal"):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", latency="normal")
 
         # Verify latency in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -696,9 +709,7 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(text="Hello", speed=1.5):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", speed=1.5)
 
         # Verify speed creates prosody in payload
         call_args = async_mock_client_wrapper.request.call_args
@@ -719,11 +730,7 @@ class TestAsyncTTSClient:
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(format="wav")
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(
-            text="Hello", format="pcm", config=config
-        ):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", format="pcm", config=config)
 
         # Verify parameter format takes precedence
         call_args = async_mock_client_wrapper.request.call_args
@@ -744,11 +751,7 @@ class TestAsyncTTSClient:
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(prosody=Prosody(speed=2.0, volume=0.5))
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(
-            text="Hello", speed=1.5, config=config
-        ):
-            audio_chunks.append(chunk)
+        await async_tts_client.convert(text="Hello", speed=1.5, config=config)
 
         # Verify parameter speed takes precedence but volume is preserved
         call_args = async_mock_client_wrapper.request.call_args
@@ -769,11 +772,9 @@ class TestAsyncTTSClient:
         mock_response.aiter_bytes = async_iter_bytes
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        audio_chunks = []
-        async for chunk in async_tts_client.convert(
+        await async_tts_client.convert(
             text="Hello", format="wav", speed=1.3, latency="normal"
-        ):
-            audio_chunks.append(chunk)
+        )
 
         # Verify all parameters in payload
         call_args = async_mock_client_wrapper.request.call_args
