@@ -9,7 +9,14 @@ from .shared import ModelState, TrainMode, Visibility
 
 
 class Sample(BaseModel):
-    """A sample audio for a voice model."""
+    """A sample audio for a voice model.
+
+    Attributes:
+        title: Title/name of the audio sample
+        text: Transcription of the spoken content in the sample
+        task_id: Unique identifier for the sample task
+        audio: URL or path to the audio file
+    """
 
     title: str
     text: str
@@ -18,7 +25,13 @@ class Sample(BaseModel):
 
 
 class Author(BaseModel):
-    """Voice model author information."""
+    """Voice model author information.
+
+    Attributes:
+        id: Unique author identifier
+        nickname: Author's display name
+        avatar: URL to author's avatar image
+    """
 
     id: str = Field(alias="_id")
     nickname: str
@@ -27,9 +40,32 @@ class Author(BaseModel):
 
 class Voice(BaseModel):
     """
-    A voice model
+    A voice model.
 
     Represents a TTS voice that can be used for synthesis.
+
+    Attributes:
+        id: Unique voice model identifier (use as reference_id in TTS)
+        type: Model type. Options: "svc" (singing voice conversion), "tts" (text-to-speech)
+        title: Voice model title/name
+        description: Detailed description of the voice model
+        cover_image: URL to the voice model's cover image
+        train_mode: Training mode used. Options: "fast"
+        state: Current model state (e.g., "ready", "training", "failed")
+        tags: List of tags for categorization (e.g., ["male", "english", "young"])
+        samples: List of audio samples demonstrating the voice
+        created_at: Timestamp when the model was created
+        updated_at: Timestamp when the model was last updated
+        languages: List of supported language codes (e.g., ["en", "zh"])
+        visibility: Model visibility. Options: "public", "private", "unlisted"
+        lock_visibility: Whether visibility setting is locked
+        like_count: Number of likes the model has received
+        mark_count: Number of bookmarks/favorites
+        shared_count: Number of times the model has been shared
+        task_count: Number of times the model has been used for generation
+        liked: Whether the current user has liked this model. Default: False
+        marked: Whether the current user has bookmarked this model. Default: False
+        author: Information about the voice model's creator
     """
 
     id: str = Field(alias="_id")
