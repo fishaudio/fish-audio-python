@@ -382,11 +382,12 @@ class AsyncTTSClient:
             client = AsyncFishAudio(api_key="...")
 
             # Stream and process chunks
-            async for chunk in client.tts.stream(text="Hello world"):
+            async for chunk in await client.tts.stream(text="Hello world"):
                 await process_audio_chunk(chunk)
 
             # Or collect all at once
-            audio = await client.tts.stream(text="Hello world").collect()
+            stream = await client.tts.stream(text="Hello world")
+            audio = await stream.collect()
             ```
         """
         # Build request payload from config
