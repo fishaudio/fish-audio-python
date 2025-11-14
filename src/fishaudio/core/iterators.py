@@ -16,10 +16,10 @@ class AudioStream:
         client = FishAudio(api_key="...")
 
         # Collect all audio at once
-        audio = client.tts.convert(text="Hello!").collect()
+        audio = client.tts.stream(text="Hello!").collect()
 
         # Or stream chunks manually
-        for chunk in client.tts.convert(text="Hello!"):
+        for chunk in client.tts.stream(text="Hello!"):
             process_chunk(chunk)
         ```
     """
@@ -47,7 +47,7 @@ class AudioStream:
 
         Examples:
             ```python
-            audio = client.tts.convert(text="Hello!").collect()
+            audio = client.tts.stream(text="Hello!").collect()
             with open("output.mp3", "wb") as f:
                 f.write(audio)
             ```
@@ -71,10 +71,11 @@ class AsyncAudioStream:
         client = AsyncFishAudio(api_key="...")
 
         # Collect all audio at once
-        audio = await client.tts.convert(text="Hello!").collect()
+        stream = await client.tts.stream(text="Hello!")
+        audio = await stream.collect()
 
         # Or stream chunks manually
-        async for chunk in client.tts.convert(text="Hello!"):
+        async for chunk in await client.tts.stream(text="Hello!"):
             await process_chunk(chunk)
         ```
     """
@@ -102,7 +103,8 @@ class AsyncAudioStream:
 
         Examples:
             ```python
-            audio = await client.tts.convert(text="Hello!").collect()
+            stream = await client.tts.stream(text="Hello!")
+            audio = await stream.collect()
             with open("output.mp3", "wb") as f:
                 f.write(audio)
             ```
