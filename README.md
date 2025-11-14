@@ -1,20 +1,35 @@
 # Fish Audio Python SDK
 
-To provide convenient Python program integration for https://docs.fish.audio.
+[![PyPI version](https://img.shields.io/pypi/v/fish-audio-sdk.svg)](https://badge.fury.io/py/fish-audio-sdk)
+[![Python Version](https://img.shields.io/badge/python-3.9+-blue)](https://pypi.org/project/fish-audio-sdk/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/fish-audio-sdk)](https://pypi.org/project/fish-audio-sdk/)
+[![codecov](https://img.shields.io/codecov/c/github/fishaudio/fish-audio-python)](https://codecov.io/gh/fishaudio/fish-audio-python)
+[![License](https://img.shields.io/github/license/fishaudio/fish-audio-python)](https://github.com/fishaudio/fish-audio-python/blob/main/LICENSE)
 
-## Install
+The official Python library for the Fish Audio API
+
+**Documentation:** [Python SDK Guide](https://docs.fish.audio/developer-guide/sdk-guide/python/) | [API Reference](https://docs.fish.audio/api-reference/sdk/python/)
+
+> **Note:** If you're using the legacy `fish_audio_sdk` API, see the [migration guide](https://docs.fish.audio/archive/python-sdk-legacy/migration-guide) to upgrade.
+
+## Installation
 
 ```bash
 pip install fish-audio-sdk
+
+# With audio playback utilities
+pip install fish-audio-sdk[utils]
 ```
-> [!NOTE]
-> The new release has not officially been released yet - please see legacy SDK documentation for now.
 
-## Usage
+## Authentication
 
-### New SDK (Recommended)
+Get your API key from [fish.audio/app/api-keys](https://fish.audio/app/api-keys):
 
-The new SDK uses the `fishaudio` module:
+```bash
+export FISH_API_KEY=your_api_key_here
+```
+
+Or provide directly:
 
 ```python
 from fishaudio import FishAudio
@@ -22,184 +37,214 @@ from fishaudio import FishAudio
 client = FishAudio(api_key="your_api_key")
 ```
 
-You can customize the base URL:
+## Quick Start
+
+**Synchronous:**
 
 ```python
 from fishaudio import FishAudio
+from fishaudio.utils import play, save
 
-client = FishAudio(api_key="your_api_key", base_url="https://your-proxy-domain")
+client = FishAudio()
+
+# Generate audio
+audio = client.tts.convert(text="Hello, world!")
+
+# Play or save
+play(audio)
+save(audio, "output.mp3")
 ```
 
-### Legacy SDK
-
-The legacy SDK uses the `fish_audio_sdk` module. Initialize a `Session` to use APIs. All APIs have synchronous and asynchronous versions. If you want to use the asynchronous version of the API, you only need to rewrite the original `session.api_call(...)` to `session.api_call.awaitable(...)`.
-
-```python
-from fish_audio_sdk import Session
-
-session = Session("your_api_key")
-```
-
-Sometimes, you may need to change our endpoint to another address. You can use
-
-```python
-from fish_audio_sdk import Session
-
-session = Session("your_api_key", base_url="https://your-proxy-domain")
-```
-
-### Text to speech
-
-```python
-from fish_audio_sdk import Session, TTSRequest
-
-session = Session("your_api_key")
-
-with open("r.mp3", "wb") as f:
-    for chunk in session.tts(TTSRequest(text="Hello, world!")):
-        f.write(chunk)
-```
-
-Or use async version:
+**Asynchronous:**
 
 ```python
 import asyncio
-import aiofiles
-
-from fish_audio_sdk import Session, TTSRequest
-
-session = Session("your_api_key")
-
+from fishaudio import AsyncFishAudio
+from fishaudio.utils import play, save
 
 async def main():
-    async with aiofiles.open("r.mp3", "wb") as f:
-        async for chunk in session.tts.awaitable(
-            TTSRequest(text="Hello, world!"),
-        ):
-            await f.write(chunk)
-
+    client = AsyncFishAudio()
+    audio = await client.tts.convert(text="Hello, world!")
+    play(audio)
+    save(audio, "output.mp3")
 
 asyncio.run(main())
 ```
 
-#### Reference Audio
+## Core Features
+
+### Text-to-Speech
+
+**With custom voice:**
 
 ```python
-from fish_audio_sdk import TTSRequest
-
-TTSRequest(
-    text="Hello, world!",
-    reference_id="your_model_id",
+# Use a specific voice by ID
+audio = client.tts.convert(
+    text="Custom voice",
+    reference_id="802e3bc2b27e49c2995d23ef70e6ac89"
 )
 ```
 
-Or just use `ReferenceAudio` in `TTSRequest`:
+**With speed control:**
 
 ```python
-from fish_audio_sdk import TTSRequest, ReferenceAudio
-
-TTSRequest(
-    text="Hello, world!",
-    references=[
-        ReferenceAudio(
-            audio=audio_file.read(),
-            text="reference audio text",
-        )
-    ],
+audio = client.tts.convert(
+    text="Speaking faster!",
+    speed=1.5  # 1.5x speed
 )
 ```
 
-### List models
+**Reusable configuration:**
 
 ```python
-models = session.list_models()
-print(models)
-```
+from fishaudio.types import TTSConfig, Prosody
 
-Or use async version:
-
-```python
-import asyncio
-
-
-async def main():
-    models = await session.list_models.awaitable()
-    print(models)
-
-
-asyncio.run(main())
-```
-
-
-
-### Get a model info by id
-
-```python
-model = session.get_model("your_model_id")
-print(model)
-```
-
-Or use async version:
-
-```python
-import asyncio
-
-
-async def main():
-    model = await session.get_model.awaitable("your_model_id")
-    print(model)
-
-
-asyncio.run(main())
-```
-
-### Create a model
-
-```python
-model = session.create_model(
-    title="test",
-    description="test",
-    voices=[voice_file.read(), other_voice_file.read()],
-    cover_image=image_file.read(),
+config = TTSConfig(
+    prosody=Prosody(speed=1.2, volume=-5),
+    reference_id="933563129e564b19a115bedd57b7406a",
+    format="wav",
+    latency="balanced"
 )
-print(model)
+
+# Reuse across generations
+audio1 = client.tts.convert(text="First message", config=config)
+audio2 = client.tts.convert(text="Second message", config=config)
 ```
 
-Or use async version:
+**Chunk-by-chunk processing:**
 
 ```python
-import asyncio
+# Stream and process chunks as they arrive
+for chunk in client.tts.stream(text="Long content..."):
+    send_to_websocket(chunk)
 
+# Or collect all chunks
+audio = client.tts.stream(text="Hello!").collect()
+```
 
-async def main():
-    model = await session.create_model.awaitable(
-        title="test",
-        description="test",
-        voices=[voice_file.read(), other_voice_file.read()],
-        cover_image=image_file.read(),
+[Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/text-to-speech)
+
+### Speech-to-Text
+
+```python
+# Transcribe audio
+with open("audio.wav", "rb") as f:
+    result = client.asr.transcribe(audio=f.read(), language="en")
+
+print(result.text)
+
+# Access timestamped segments
+for segment in result.segments:
+    print(f"[{segment.start:.2f}s - {segment.end:.2f}s] {segment.text}")
+```
+
+[Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/speech-to-text)
+
+### Real-time Streaming
+
+Stream dynamically generated text for conversational AI and live applications:
+
+**Synchronous:**
+
+```python
+def text_chunks():
+    yield "Hello, "
+    yield "this is "
+    yield "streaming!"
+
+audio_stream = client.tts.stream_websocket(text_chunks(), latency="balanced")
+play(audio_stream)
+```
+
+**Asynchronous:**
+
+```python
+async def text_chunks():
+    yield "Hello, "
+    yield "this is "
+    yield "streaming!"
+
+audio_stream = await client.tts.stream_websocket(text_chunks(), latency="balanced")
+play(audio_stream)
+```
+
+[Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/websocket)
+
+### Voice Cloning
+
+**Instant cloning:**
+
+```python
+from fishaudio.types import ReferenceAudio
+
+# Clone voice on-the-fly
+with open("reference.wav", "rb") as f:
+    audio = client.tts.convert(
+        text="Cloned voice speaking",
+        references=[ReferenceAudio(
+            audio=f.read(),
+            text="Text spoken in reference"
+        )]
     )
-    print(model)
-
-
-asyncio.run(main())
 ```
 
-
-### Delete a model
+**Persistent voice models:**
 
 ```python
-session.delete_model("your_model_id")
+# Create voice model for reuse
+with open("voice_sample.wav", "rb") as f:
+    voice = client.voices.create(
+        title="My Voice",
+        voices=[f.read()],
+        description="Custom voice clone"
+    )
+
+# Use the created model
+audio = client.tts.convert(
+    text="Using my saved voice",
+    reference_id=voice.id
+)
 ```
 
-Or use async version:
+[Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/voice-cloning)
+
+## Resource Clients
+
+| Resource | Description | Key Methods |
+|----------|-------------|-------------|
+| `client.tts` | Text-to-speech | `convert()`, `stream()`, `stream_websocket()` |
+| `client.asr` | Speech recognition | `transcribe()` |
+| `client.voices` | Voice management | `list()`, `get()`, `create()`, `update()`, `delete()` |
+| `client.account` | Account info | `get_credits()`, `get_package()` |
+
+## Error Handling
 
 ```python
-import asyncio
+from fishaudio.exceptions import (
+    AuthenticationError,
+    RateLimitError,
+    ValidationError,
+    FishAudioError
+)
 
-
-async def main():
-    await session.delete_model.awaitable("your_model_id")
-
-
-asyncio.run(main())
+try:
+    audio = client.tts.convert(text="Hello!")
+except AuthenticationError:
+    print("Invalid API key")
+except RateLimitError:
+    print("Rate limit exceeded")
+except ValidationError as e:
+    print(f"Invalid request: {e}")
+except FishAudioError as e:
+    print(f"API error: {e}")
 ```
+
+## Resources
+
+- **Documentation:** [SDK Guide](https://docs.fish.audio/developer-guide/sdk-guide/python/) | [API Reference](https://docs.fish.audio/api-reference/sdk/python/)
+- **Package:** [PyPI](https://pypi.org/project/fish-audio-sdk/) | [GitHub](https://github.com/fishaudio/fish-audio-python)
+- **Legacy SDK:** [Documentation](https://docs.fish.audio/archive/python-sdk-legacy) | [Migration Guide](https://docs.fish.audio/archive/python-sdk-legacy/migration-guide)
+
+## License
+
+This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.

@@ -28,6 +28,7 @@ Example:
 
 from ._version import __version__
 from .client import AsyncFishAudio, FishAudio
+from .core.iterators import AsyncAudioStream, AudioStream
 from .exceptions import (
     APIError,
     AuthenticationError,
@@ -52,6 +53,9 @@ __all__ = [
     "play",
     "save",
     "stream",
+    # Audio streams
+    "AudioStream",
+    "AsyncAudioStream",
     # Types
     "FlushEvent",
     "TextEvent",

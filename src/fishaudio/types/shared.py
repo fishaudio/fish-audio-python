@@ -9,7 +9,12 @@ T = TypeVar("T")
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    """Generic paginated response."""
+    """Generic paginated response.
+
+    Attributes:
+        total: Total number of items across all pages
+        items: List of items on the current page
+    """
 
     total: int
     items: List[T]
@@ -25,7 +30,7 @@ AudioFormat = Literal["wav", "pcm", "mp3", "opus"]
 Visibility = Literal["public", "unlist", "private"]
 
 # Training mode types
-TrainMode = Literal["fast", "full"]
+TrainMode = Literal["fast"]
 
 # Model state types
 ModelState = Literal["created", "training", "trained", "failed"]

@@ -142,7 +142,7 @@ def copy_docs(sdk_root: Path, docs_root: Path) -> None:
         python_sdk_dir,
         lambda content: add_frontmatter(
             content,
-            title="Python SDK",
+            title="Overview",
             description="Fish Audio Python SDK for text-to-speech and voice cloning",
             icon="python",
         ),

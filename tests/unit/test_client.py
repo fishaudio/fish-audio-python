@@ -20,7 +20,7 @@ class TestFishAudio:
         assert client._client_wrapper.api_key == mock_api_key
 
     def test_init_with_env_var(self, mock_api_key):
-        with patch.dict("os.environ", {"FISH_AUDIO_API_KEY": mock_api_key}):
+        with patch.dict("os.environ", {"FISH_API_KEY": mock_api_key}):
             client = FishAudio()
             assert client._client_wrapper.api_key == mock_api_key
 

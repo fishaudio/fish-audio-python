@@ -13,10 +13,7 @@ class TestASRIntegration:
         """Generate sample audio for ASR testing."""
         # Generate audio from known text
         config = TTSConfig(format="wav")
-        audio_chunks = list(
-            client.tts.convert(text="Hello world, this is a test.", config=config)
-        )
-        return b"".join(audio_chunks)
+        return client.tts.convert(text="Hello world, this is a test.", config=config)
 
     def test_basic_asr(self, client, sample_audio):
         """Test basic speech-to-text transcription."""
@@ -54,13 +51,8 @@ class TestAsyncASRIntegration:
     @pytest.fixture
     async def async_sample_audio(self, async_client):
         """Generate sample audio for async ASR testing."""
-        audio_chunks = []
         config = TTSConfig(format="wav")
-        async for chunk in async_client.tts.convert(
-            text="Async test audio", config=config
-        ):
-            audio_chunks.append(chunk)
-        return b"".join(audio_chunks)
+        return await async_client.tts.convert(text="Async test audio", config=config)
 
     @pytest.mark.asyncio
     async def test_async_basic_asr(self, async_client, async_sample_audio):

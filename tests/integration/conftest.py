@@ -1,5 +1,7 @@
 """Fixtures for integration tests."""
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -21,9 +23,9 @@ TEST_REFERENCE_ID = "ca3007f96ae7499ab87d27ea3599956a"
 @pytest.fixture
 def api_key():
     """Get API key from environment."""
-    key = os.getenv("FISH_AUDIO_API_KEY")
+    key = os.getenv("FISH_API_KEY")
     if not key:
-        pytest.skip("No API key available (set FISH_AUDIO_API_KEY)")
+        pytest.skip("No API key available (set FISH_API_KEY)")
     return key
 
 
@@ -55,17 +57,20 @@ def save_audio():
         A callable that takes audio chunks and filename and saves to output/
     """
 
-    def _save(audio_chunks: list[bytes], filename: str) -> Path:
-        """Save audio chunks to output directory.
+    def _save(audio: bytes | list[bytes], filename: str) -> Path:
+        """Save audio to output directory.
 
         Args:
-            audio_chunks: List of audio byte chunks
+            audio: Audio bytes or list of audio byte chunks
             filename: Name of the output file (including extension)
 
         Returns:
             Path to the saved file
         """
-        complete_audio = b"".join(audio_chunks)
+        if isinstance(audio, bytes):
+            complete_audio = audio
+        else:
+            complete_audio = b"".join(audio)
         output_file = OUTPUT_DIR / filename
         output_file.write_bytes(complete_audio)
         return output_file

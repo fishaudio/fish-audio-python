@@ -67,7 +67,7 @@ class TestClientWrapper:
                 ClientWrapper()
 
     def test_init_with_env_var(self, mock_api_key):
-        with patch.dict("os.environ", {"FISH_AUDIO_API_KEY": mock_api_key}):
+        with patch.dict("os.environ", {"FISH_API_KEY": mock_api_key}):
             wrapper = ClientWrapper()
             assert wrapper.api_key == mock_api_key
 

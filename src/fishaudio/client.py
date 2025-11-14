@@ -51,7 +51,7 @@ class FishAudio:
         Initialize Fish Audio client.
 
         Args:
-            api_key: API key (can also use FISH_AUDIO_API_KEY env var)
+            api_key: API key (can also use FISH_API_KEY env var)
             base_url: API base URL
             timeout: Request timeout in seconds
             httpx_client: Optional custom HTTP client
@@ -145,7 +145,7 @@ class AsyncFishAudio:
         Initialize async Fish Audio client.
 
         Args:
-            api_key: API key (can also use FISH_AUDIO_API_KEY env var)
+            api_key: API key (can also use FISH_API_KEY env var)
             base_url: API base URL
             timeout: Request timeout in seconds
             httpx_client: Optional custom async HTTP client
