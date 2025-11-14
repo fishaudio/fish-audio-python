@@ -212,6 +212,6 @@ from fish_audio_sdk import Session
 session = Session("your_api_key")
 ```
 
-For complete legacy SDK documentation, see the [Legacy API Documentation](https://docs.fish.audio/legacy).
+For complete legacy SDK documentation, see the [Legacy API Documentation](https://docs.fish.audio/archive/python-sdk-legacy).
 
-We recommend migrating to the new `fishaudio` module - see our [Migration Guide](https://docs.fish.audio) for assistance.
+We recommend migrating to the new `fishaudio` module - see our [Migration Guide](https://docs.fish.audio/archive/python-sdk-legacy/migration-guide) for assistance.
