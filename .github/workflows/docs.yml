@@ -45,6 +45,8 @@ jobs:
             chore: update Python SDK API reference
 
             Auto-generated from fishaudio/fish-audio-python@${{ github.sha }}
+          author: ${{ vars.BOT_NAME }} <${{ vars.BOT_EMAIL }}>
+          committer: ${{ vars.BOT_NAME }} <${{ vars.BOT_EMAIL }}>
           branch: auto/python-api-docs
           delete-branch: true
           title: "Update Python SDK API Reference"
