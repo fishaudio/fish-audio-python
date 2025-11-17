@@ -4,7 +4,13 @@ import pytest
 from unittest.mock import patch
 import httpx
 
-from fishaudio.core import OMIT, ClientWrapper, AsyncClientWrapper, RequestOptions
+from fishaudio.core import (
+    OMIT,
+    ClientWrapper,
+    AsyncClientWrapper,
+    RequestOptions,
+    WebSocketOptions,
+)
 
 
 class TestOMIT:
@@ -49,6 +55,38 @@ class TestRequestOptions:
         timeout = options.get_timeout()
         assert isinstance(timeout, httpx.Timeout)
         assert timeout.connect == 30.0
+
+
+class TestWebSocketOptions:
+    """Test WebSocketOptions class."""
+
+    def test_to_httpx_ws_kwargs_all_options(self):
+        """Test to_httpx_ws_kwargs with all options set."""
+        options = WebSocketOptions(
+            keepalive_ping_timeout_seconds=60.0,
+            keepalive_ping_interval_seconds=30.0,
+            max_message_size_bytes=131072,
+            queue_size=1024,
+        )
+        kwargs = options.to_httpx_ws_kwargs()
+        assert kwargs == {
+            "keepalive_ping_timeout_seconds": 60.0,
+            "keepalive_ping_interval_seconds": 30.0,
+            "max_message_size_bytes": 131072,
+            "queue_size": 1024,
+        }
+
+    def test_to_httpx_ws_kwargs_partial_options(self):
+        """Test to_httpx_ws_kwargs with only some options set."""
+        options = WebSocketOptions(keepalive_ping_timeout_seconds=60.0)
+        kwargs = options.to_httpx_ws_kwargs()
+        assert kwargs == {"keepalive_ping_timeout_seconds": 60.0}
+        assert "keepalive_ping_interval_seconds" not in kwargs
+
+    def test_to_httpx_ws_kwargs_no_options(self):
+        """Test to_httpx_ws_kwargs with no options set."""
+        options = WebSocketOptions()
+        assert options.to_httpx_ws_kwargs() == {}
 
 
 class TestClientWrapper:
