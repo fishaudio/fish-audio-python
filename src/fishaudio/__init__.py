@@ -29,6 +29,7 @@ Example:
 from ._version import __version__
 from .client import AsyncFishAudio, FishAudio
 from .core.iterators import AsyncAudioStream, AudioStream
+from .core.websocket_options import WebSocketOptions
 from .exceptions import (
     APIError,
     AuthenticationError,
@@ -41,7 +42,7 @@ from .exceptions import (
     ValidationError,
     WebSocketError,
 )
-from .types import FlushEvent, TextEvent
+from .types import FlushEvent, ReferenceAudio, TextEvent, TTSConfig
 from .utils import play, save, stream
 
 # Main exports
@@ -56,8 +57,12 @@ __all__ = [
     # Audio streams
     "AudioStream",
     "AsyncAudioStream",
+    # Configuration
+    "TTSConfig",
+    "WebSocketOptions",
     # Types
     "FlushEvent",
+    "ReferenceAudio",
     "TextEvent",
     # Exceptions
     "APIError",

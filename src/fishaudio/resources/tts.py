@@ -8,7 +8,7 @@ import ormsgpack
 from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, connect_ws
 
 from .realtime import aiter_websocket_audio, iter_websocket_audio
-from ..core import AsyncClientWrapper, ClientWrapper, RequestOptions
+from ..core import AsyncClientWrapper, ClientWrapper, RequestOptions, WebSocketOptions
 from ..core.iterators import AsyncAudioStream, AudioStream
 from ..types import (
     AudioFormat,
@@ -215,6 +215,7 @@ class TTSClient:
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
         max_workers: int = 10,
+        ws_options: Optional[WebSocketOptions] = None,
     ) -> Iterator[bytes]:
         """
         Stream text and receive audio in real-time via WebSocket.
@@ -305,6 +306,9 @@ class TTSClient:
                 speed, base=config.prosody
             )
 
+        # Prepare WebSocket connection kwargs
+        ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
+
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
         try:
@@ -316,6 +320,7 @@ class TTSClient:
                     "model": model,
                     "Authorization": f"Bearer {self._client.api_key}",
                 },
+                **ws_kwargs,
             ) as ws:
 
                 def sender():
@@ -502,6 +507,7 @@ class AsyncTTSClient:
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
         model: Model = "s1",
+        ws_options: Optional[WebSocketOptions] = None,
     ):
         """
         Stream text and receive audio in real-time via WebSocket (async).
@@ -591,11 +597,15 @@ class AsyncTTSClient:
                 speed, base=config.prosody
             )
 
+        # Prepare WebSocket connection kwargs
+        ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
+
         ws: AsyncWebSocketSession
         async with aconnect_ws(
             "/v1/tts/live",
             client=self._client.client,
             headers={"model": model, "Authorization": f"Bearer {self._client.api_key}"},
+            **ws_kwargs,
         ) as ws:
 
             async def sender():
