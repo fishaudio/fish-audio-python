@@ -32,9 +32,13 @@ class WebSocketOptions:
         """Convert to kwargs dict for httpx_ws aconnect_ws/connect_ws."""
         kwargs = {}
         if self.keepalive_ping_timeout_seconds is not None:
-            kwargs["keepalive_ping_timeout_seconds"] = self.keepalive_ping_timeout_seconds
+            kwargs["keepalive_ping_timeout_seconds"] = (
+                self.keepalive_ping_timeout_seconds
+            )
         if self.keepalive_ping_interval_seconds is not None:
-            kwargs["keepalive_ping_interval_seconds"] = self.keepalive_ping_interval_seconds
+            kwargs["keepalive_ping_interval_seconds"] = (
+                self.keepalive_ping_interval_seconds
+            )
         if self.max_message_size_bytes is not None:
             kwargs["max_message_size_bytes"] = self.max_message_size_bytes
         if self.queue_size is not None:
