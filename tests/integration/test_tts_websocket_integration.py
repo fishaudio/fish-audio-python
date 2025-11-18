@@ -2,6 +2,7 @@
 
 import pytest
 
+from fishaudio import WebSocketOptions
 from fishaudio.types import Prosody, TTSConfig, TextEvent, FlushEvent
 from .conftest import TEST_REFERENCE_ID
 
@@ -117,6 +118,59 @@ class TestTTSWebSocketIntegration:
         # Empty stream should raise WebSocketError as API returns error
         with pytest.raises(WebSocketError, match="WebSocket stream ended with error"):
             list(client.tts.stream_websocket(text_stream()))
+
+    def test_websocket_very_long_generation_with_timeout(self, client, save_audio):
+        """
+        Test that very long text generation succeeds with increased timeout.
+
+        This test generates a very long response that could potentially take >20 seconds
+        to fully generate, which would cause a WebSocketNetworkError with the default
+        keepalive_ping_timeout_seconds=20. By using an increased timeout of 60 seconds,
+        we can handle longer generation times without disconnection.
+
+        This is the SOLUTION to issue #47. To reproduce the timeout issue, run:
+        python reproduce_issue_47.py --mode=both
+        """
+        # Use significantly increased timeout to handle very long generations
+        ws_options = WebSocketOptions(
+            keepalive_ping_timeout_seconds=60.0,
+            keepalive_ping_interval_seconds=30.0,
+        )
+
+        def text_stream():
+            # Generate a very long piece of text that will take significant time to process
+            long_text = [
+                "This is a test of very long form text-to-speech generation. ",
+                "We are testing the ability to handle extended generation times without timing out. ",
+                "The default WebSocket keepalive timeout of 20 seconds can be insufficient for long responses. ",
+                "By increasing the keepalive_ping_timeout_seconds to 60 seconds, we allow for longer gaps between chunks. ",
+                "This is particularly important for conversational AI applications where responses can be quite lengthy. ",
+                "The WebSocket connection should remain stable throughout the entire generation process. ",
+                "We include enough text here to ensure the generation takes a substantial amount of time. ",
+                "This helps verify that the increased timeout setting is working correctly. ",
+                "The audio streaming should continue smoothly without any network errors. ",
+                "Each sentence adds more content to be synthesized into speech. ",
+                "The system should handle this gracefully with the custom WebSocket options. ",
+                "This demonstrates the practical value of the WebSocketOptions feature. ",
+                "Users can now configure timeouts based on their specific use case requirements. ",
+                "Long-form content generation is now much more reliable. ",
+                "The implementation passes through all necessary parameters to the underlying httpx_ws library. ",
+            ]
+            for sentence in long_text:
+                yield sentence
+
+        # This should succeed with increased timeout
+        audio_chunks = list(
+            client.tts.stream_websocket(text_stream(), ws_options=ws_options)
+        )
+
+        assert len(audio_chunks) > 0, "Should receive audio chunks for very long text"
+        complete_audio = b"".join(audio_chunks)
+        # Very long text should produce substantial audio
+        assert len(complete_audio) > 10000, (
+            "Very long text should produce substantial audio data"
+        )
+        save_audio(audio_chunks, "test_websocket_very_long_with_timeout.mp3")
 
 
 class TestAsyncTTSWebSocketIntegration:
