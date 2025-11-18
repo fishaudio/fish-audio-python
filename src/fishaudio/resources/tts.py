@@ -232,13 +232,16 @@ class TTSClient:
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             max_workers: ThreadPoolExecutor workers for concurrent sender
+            ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
+                Useful for long-running generations that may exceed default timeout values.
+                See WebSocketOptions class for available parameters.
 
         Returns:
             Iterator of audio bytes
 
         Example:
             ```python
-            from fishaudio import FishAudio, TTSConfig, ReferenceAudio
+            from fishaudio import FishAudio, TTSConfig, ReferenceAudio, WebSocketOptions
 
             client = FishAudio(api_key="...")
 
@@ -271,6 +274,16 @@ class TTSClient:
                 for audio_chunk in client.tts.stream_websocket(
                     text_generator(),
                     references=[ReferenceAudio(audio=audio_bytes, text="sample")]
+                ):
+                    f.write(audio_chunk)
+
+            # With WebSocket options for long-running generations
+            # Useful if you're generating very long responses that may take >20 seconds
+            ws_options = WebSocketOptions(keepalive_ping_timeout_seconds=60.0)
+            with open("output.mp3", "wb") as f:
+                for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    ws_options=ws_options
                 ):
                     f.write(audio_chunk)
 
@@ -523,13 +536,16 @@ class AsyncTTSClient:
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
+            ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
+                Useful for long-running generations that may exceed default timeout values.
+                See WebSocketOptions class for available parameters.
 
         Returns:
             Async iterator of audio bytes
 
         Example:
             ```python
-            from fishaudio import AsyncFishAudio, TTSConfig, ReferenceAudio
+            from fishaudio import AsyncFishAudio, TTSConfig, ReferenceAudio, WebSocketOptions
 
             client = AsyncFishAudio(api_key="...")
 
@@ -562,6 +578,16 @@ class AsyncTTSClient:
                 async for audio_chunk in client.tts.stream_websocket(
                     text_generator(),
                     references=[ReferenceAudio(audio=audio_bytes, text="sample")]
+                ):
+                    await f.write(audio_chunk)
+
+            # With WebSocket options for long-running generations
+            # Useful if you're generating very long responses that may take >20 seconds
+            ws_options = WebSocketOptions(keepalive_ping_timeout_seconds=60.0)
+            async with aiofiles.open("output.mp3", "wb") as f:
+                async for audio_chunk in client.tts.stream_websocket(
+                    text_generator(),
+                    ws_options=ws_options
                 ):
                     await f.write(audio_chunk)
 
