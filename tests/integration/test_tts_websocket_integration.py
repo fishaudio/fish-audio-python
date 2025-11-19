@@ -1,9 +1,12 @@
 """Integration tests for TTS WebSocket streaming functionality."""
 
+from typing import get_args
+
 import pytest
 
 from fishaudio import WebSocketOptions
 from fishaudio.types import Prosody, TTSConfig, TextEvent, FlushEvent
+from fishaudio.types.shared import Model
 from .conftest import TEST_REFERENCE_ID
 
 
@@ -30,6 +33,26 @@ class TestTTSWebSocketIntegration:
 
         # Save the audio
         save_audio(audio_chunks, "test_websocket_streaming.mp3")
+
+    def test_websocket_streaming_with_different_models(self, client, save_audio):
+        """Test WebSocket streaming with different models."""
+        import time
+
+        models = get_args(Model)
+
+        for model in models:
+
+            def text_stream():
+                yield f"Testing model {model} via WebSocket."
+
+            audio_chunks = list(client.tts.stream_websocket(text_stream(), model=model))
+            assert len(audio_chunks) > 0, f"Failed for model: {model}"
+
+            # Write to output directory
+            save_audio(audio_chunks, f"test_websocket_model_{model}.mp3")
+
+            # Brief delay to avoid SSL errors when opening next WebSocket connection
+            time.sleep(0.3)
 
     def test_websocket_streaming_with_wav_format(self, client, save_audio):
         """Test WebSocket streaming with WAV format."""
@@ -196,6 +219,34 @@ class TestAsyncTTSWebSocketIntegration:
         save_audio(audio_chunks, "test_async_websocket_streaming.mp3")
 
     @pytest.mark.asyncio
+    async def test_async_websocket_streaming_with_different_models(
+        self, async_client, save_audio
+    ):
+        """Test async WebSocket streaming with different models."""
+        import asyncio
+
+        models = get_args(Model)
+
+        for model in models:
+
+            async def text_stream():
+                yield f"Testing model {model} via async WebSocket."
+
+            audio_chunks = []
+            async for chunk in async_client.tts.stream_websocket(
+                text_stream(), model=model
+            ):
+                audio_chunks.append(chunk)
+
+            assert len(audio_chunks) > 0, f"Failed for model: {model}"
+
+            # Write to output directory
+            save_audio(audio_chunks, f"test_async_websocket_model_{model}.mp3")
+
+            # Brief delay to avoid SSL errors when opening next WebSocket connection
+            await asyncio.sleep(0.3)
+
+    @pytest.mark.asyncio
     async def test_async_websocket_streaming_with_format(
         self, async_client, save_audio
     ):
@@ -285,6 +336,8 @@ class TestAsyncTTSWebSocketIntegration:
         self, async_client, save_audio
     ):
         """Test multiple async WebSocket streaming calls in sequence."""
+        import asyncio
+
         for i in range(3):
 
             async def text_stream():
@@ -296,6 +349,9 @@ class TestAsyncTTSWebSocketIntegration:
 
             assert len(audio_chunks) > 0, f"Call {i + 1} should return audio"
             save_audio(audio_chunks, f"test_async_websocket_call_{i + 1}.mp3")
+
+            # Brief delay to avoid SSL errors when opening next WebSocket connection
+            await asyncio.sleep(0.3)
 
     @pytest.mark.asyncio
     async def test_async_websocket_streaming_empty_text(self, async_client, save_audio):

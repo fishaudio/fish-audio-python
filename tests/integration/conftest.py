@@ -44,9 +44,13 @@ def client(api_key):
 @pytest.fixture
 async def async_client(api_key):
     """Async Fish Audio client."""
+    import asyncio
+
     client = AsyncFishAudio(api_key=api_key)
     yield client
     await client.close()
+    # Brief delay to avoid API rate limits on WebSocket connections
+    await asyncio.sleep(0.3)
 
 
 @pytest.fixture
