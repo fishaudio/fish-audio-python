@@ -26,12 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3"
       - name: Install dependencies
         run: uv sync
       - name: Run mypy
@@ -42,22 +40,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.x"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3"]
     steps:
       - uses: actions/checkout@v5
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync
       - name: Run tests with coverage
         run: uv run pytest tests/unit/ -v --cov=src/fishaudio --cov-report=xml --cov-report=term
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
-        if: matrix.python-version == '3.x'
+        if: matrix.python-version == '3'
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
@@ -69,13 +65,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.9"
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.9"
 
       - name: Install dependencies
         run: uv sync
