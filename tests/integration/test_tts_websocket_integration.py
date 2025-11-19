@@ -43,9 +43,7 @@ class TestTTSWebSocketIntegration:
             def text_stream():
                 yield f"Testing model {model} via WebSocket."
 
-            audio_chunks = list(
-                client.tts.stream_websocket(text_stream(), model=model)
-            )
+            audio_chunks = list(client.tts.stream_websocket(text_stream(), model=model))
             assert len(audio_chunks) > 0, f"Failed for model: {model}"
 
             # Write to output directory
