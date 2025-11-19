@@ -50,15 +50,11 @@ class TestTTSIntegration:
         models = get_args(Model)
 
         for model in models:
-            try:
-                audio = client.tts.convert(text=f"Testing model {model}", model=model)
-                assert len(audio) > 0, f"Failed for model: {model}"
+            audio = client.tts.convert(text=f"Testing model {model}", model=model)
+            assert len(audio) > 0, f"Failed for model: {model}"
 
-                # Write to output directory
-                save_audio(audio, f"test_model_{model}.mp3")
-            except Exception as e:
-                # Some models might not be available
-                pytest.skip(f"Model {model} not available: {e}")
+            # Write to output directory
+            save_audio(audio, f"test_model_{model}.mp3")
 
     def test_tts_longer_text(self, client, save_audio):
         """Test TTS with longer text."""
