@@ -36,6 +36,8 @@ class TestTTSWebSocketIntegration:
 
     def test_websocket_streaming_with_different_models(self, client, save_audio):
         """Test WebSocket streaming with different models."""
+        import time
+
         models = get_args(Model)
 
         for model in models:
@@ -48,6 +50,9 @@ class TestTTSWebSocketIntegration:
 
             # Write to output directory
             save_audio(audio_chunks, f"test_websocket_model_{model}.mp3")
+
+            # Brief delay to avoid SSL errors when opening next WebSocket connection
+            time.sleep(0.3)
 
     def test_websocket_streaming_with_wav_format(self, client, save_audio):
         """Test WebSocket streaming with WAV format."""
@@ -218,6 +223,8 @@ class TestAsyncTTSWebSocketIntegration:
         self, async_client, save_audio
     ):
         """Test async WebSocket streaming with different models."""
+        import asyncio
+
         models = get_args(Model)
 
         for model in models:
@@ -235,6 +242,9 @@ class TestAsyncTTSWebSocketIntegration:
 
             # Write to output directory
             save_audio(audio_chunks, f"test_async_websocket_model_{model}.mp3")
+
+            # Brief delay to avoid SSL errors when opening next WebSocket connection
+            await asyncio.sleep(0.3)
 
     @pytest.mark.asyncio
     async def test_async_websocket_streaming_with_format(
@@ -326,6 +336,8 @@ class TestAsyncTTSWebSocketIntegration:
         self, async_client, save_audio
     ):
         """Test multiple async WebSocket streaming calls in sequence."""
+        import asyncio
+
         for i in range(3):
 
             async def text_stream():
@@ -337,6 +349,9 @@ class TestAsyncTTSWebSocketIntegration:
 
             assert len(audio_chunks) > 0, f"Call {i + 1} should return audio"
             save_audio(audio_chunks, f"test_async_websocket_call_{i + 1}.mp3")
+
+            # Brief delay to avoid SSL errors when opening next WebSocket connection
+            await asyncio.sleep(0.3)
 
     @pytest.mark.asyncio
     async def test_async_websocket_streaming_empty_text(self, async_client, save_audio):
