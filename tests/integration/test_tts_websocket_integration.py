@@ -1,9 +1,12 @@
 """Integration tests for TTS WebSocket streaming functionality."""
 
+from typing import get_args
+
 import pytest
 
 from fishaudio import WebSocketOptions
 from fishaudio.types import Prosody, TTSConfig, TextEvent, FlushEvent
+from fishaudio.types.shared import Model
 from .conftest import TEST_REFERENCE_ID
 
 
@@ -30,6 +33,23 @@ class TestTTSWebSocketIntegration:
 
         # Save the audio
         save_audio(audio_chunks, "test_websocket_streaming.mp3")
+
+    def test_websocket_streaming_with_different_models(self, client, save_audio):
+        """Test WebSocket streaming with different models."""
+        models = get_args(Model)
+
+        for model in models:
+
+            def text_stream():
+                yield f"Testing model {model} via WebSocket."
+
+            audio_chunks = list(
+                client.tts.stream_websocket(text_stream(), model=model)
+            )
+            assert len(audio_chunks) > 0, f"Failed for model: {model}"
+
+            # Write to output directory
+            save_audio(audio_chunks, f"test_websocket_model_{model}.mp3")
 
     def test_websocket_streaming_with_wav_format(self, client, save_audio):
         """Test WebSocket streaming with WAV format."""
@@ -194,6 +214,29 @@ class TestAsyncTTSWebSocketIntegration:
         assert len(complete_audio) > 1000, "Should have substantial audio data"
 
         save_audio(audio_chunks, "test_async_websocket_streaming.mp3")
+
+    @pytest.mark.asyncio
+    async def test_async_websocket_streaming_with_different_models(
+        self, async_client, save_audio
+    ):
+        """Test async WebSocket streaming with different models."""
+        models = get_args(Model)
+
+        for model in models:
+
+            async def text_stream():
+                yield f"Testing model {model} via async WebSocket."
+
+            audio_chunks = []
+            async for chunk in async_client.tts.stream_websocket(
+                text_stream(), model=model
+            ):
+                audio_chunks.append(chunk)
+
+            assert len(audio_chunks) > 0, f"Failed for model: {model}"
+
+            # Write to output directory
+            save_audio(audio_chunks, f"test_async_websocket_model_{model}.mp3")
 
     @pytest.mark.asyncio
     async def test_async_websocket_streaming_with_format(
