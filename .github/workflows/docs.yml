@@ -12,7 +12,7 @@ jobs:
     environment: docs
     steps:
       - name: Checkout fish-audio-python
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: sdk
 
@@ -30,7 +30,7 @@ jobs:
         run: uv run pydoc-markdown
 
       - name: Checkout docs
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ vars.DOCS_REPO }}
           path: docs
