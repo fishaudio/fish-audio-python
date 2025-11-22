@@ -12,9 +12,10 @@ jobs:
     environment: docs
     steps:
       - name: Checkout fish-audio-python
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: sdk
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -30,10 +31,11 @@ jobs:
         run: uv run pydoc-markdown
 
       - name: Checkout docs
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ vars.DOCS_REPO }}
           path: docs
+          persist-credentials: false
 
       - name: Copy generated documentation
         run: uv run python sdk/scripts/copy_docs.py sdk docs
