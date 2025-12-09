@@ -111,13 +111,13 @@ class TestClientWrapper:
 
     def test_get_headers(self, mock_api_key):
         wrapper = ClientWrapper(api_key=mock_api_key)
-        headers = wrapper._get_headers()
+        headers = wrapper.get_headers()
         assert headers["Authorization"] == f"Bearer {mock_api_key}"
         assert "User-Agent" in headers
 
     def test_get_headers_with_additional(self, mock_api_key):
         wrapper = ClientWrapper(api_key=mock_api_key)
-        headers = wrapper._get_headers({"X-Custom": "value"})
+        headers = wrapper.get_headers({"X-Custom": "value"})
         assert headers["X-Custom"] == "value"
         assert headers["Authorization"] == f"Bearer {mock_api_key}"
 
@@ -139,6 +139,6 @@ class TestAsyncClientWrapper:
 
     def test_get_headers(self, mock_api_key):
         wrapper = AsyncClientWrapper(api_key=mock_api_key)
-        headers = wrapper._get_headers()
+        headers = wrapper.get_headers()
         assert headers["Authorization"] == f"Bearer {mock_api_key}"
         assert "User-Agent" in headers

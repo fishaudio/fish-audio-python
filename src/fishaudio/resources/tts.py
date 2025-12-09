@@ -329,10 +329,7 @@ class TTSClient:
             with connect_ws(
                 "/v1/tts/live",
                 client=self._client.client,
-                headers={
-                    "model": model,
-                    "Authorization": f"Bearer {self._client.api_key}",
-                },
+                headers=self._client.get_headers({"model": model}),
                 **ws_kwargs,
             ) as ws:
 
@@ -630,7 +627,7 @@ class AsyncTTSClient:
         async with aconnect_ws(
             "/v1/tts/live",
             client=self._client.client,
-            headers={"model": model, "Authorization": f"Bearer {self._client.api_key}"},
+            headers=self._client.get_headers({"model": model}),
             **ws_kwargs,
         ) as ws:
 
