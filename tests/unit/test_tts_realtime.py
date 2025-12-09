@@ -16,6 +16,12 @@ def mock_client_wrapper(mock_api_key):
     wrapper.api_key = mock_api_key
     # Mock the underlying httpx.Client
     wrapper._client = Mock()
+    # Mock get_headers to return a dict with the additional headers merged
+    wrapper.get_headers = lambda additional=None: {
+        "Authorization": f"Bearer {mock_api_key}",
+        "User-Agent": "fish-audio/python/test",
+        **(additional or {}),
+    }
     return wrapper
 
 
@@ -26,6 +32,12 @@ def async_mock_client_wrapper(mock_api_key):
     wrapper.api_key = mock_api_key
     # Mock the underlying httpx.AsyncClient
     wrapper._client = Mock()
+    # Mock get_headers to return a dict with the additional headers merged
+    wrapper.get_headers = lambda additional=None: {
+        "Authorization": f"Bearer {mock_api_key}",
+        "User-Agent": "fish-audio/python/test",
+        **(additional or {}),
+    }
     return wrapper
 
 

@@ -60,10 +60,10 @@ class BaseClientWrapper:
             )
         self.base_url = base_url
 
-    def _get_headers(
+    def get_headers(
         self, additional_headers: Optional[Dict[str, str]] = None
     ) -> Dict[str, str]:
-        """Build headers including authentication."""
+        """Build headers including authentication and user agent."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "User-Agent": f"fish-audio/python/{__version__}",
@@ -77,7 +77,7 @@ class BaseClientWrapper:
     ) -> None:
         """Prepare request kwargs by merging headers, timeout, and query params."""
         # Merge headers
-        headers = self._get_headers()
+        headers = self.get_headers()
         if request_options and request_options.additional_headers:
             headers.update(request_options.additional_headers)
         kwargs["headers"] = {**headers, **kwargs.get("headers", {})}
@@ -113,7 +113,7 @@ class ClientWrapper(BaseClientWrapper):
             self._client = httpx.Client(
                 base_url=base_url,
                 timeout=httpx.Timeout(timeout),
-                headers=self._get_headers(),
+                headers=self.get_headers(),
             )
 
     def request(
@@ -185,7 +185,7 @@ class AsyncClientWrapper(BaseClientWrapper):
             self._client = httpx.AsyncClient(
                 base_url=base_url,
                 timeout=httpx.Timeout(timeout),
-                headers=self._get_headers(),
+                headers=self.get_headers(),
             )
 
     async def request(
