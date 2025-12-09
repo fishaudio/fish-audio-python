@@ -24,7 +24,10 @@ class WebSocketSession:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._client = httpx.Client(
             base_url=self._base_url,
-            headers={"Authorization": f"Bearer {self._apikey}"},
+            headers={
+                "Authorization": f"Bearer {self._apikey}",
+                "User-Agent": "fish-audio/python/legacy",
+            },
         )
 
     def __enter__(self):
@@ -97,7 +100,10 @@ class AsyncWebSocketSession:
         self._base_url = base_url
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
-            headers={"Authorization": f"Bearer {self._apikey}"},
+            headers={
+                "Authorization": f"Bearer {self._apikey}",
+                "User-Agent": "fish-audio/python/legacy",
+            },
         )
 
     async def __aenter__(self):

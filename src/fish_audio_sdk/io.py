@@ -34,14 +34,20 @@ class RemoteCall:
     def init_async_client(self):
         self._async_client = httpx.AsyncClient(
             base_url=self._base_url,
-            headers={"Authorization": f"Bearer {self._apikey}"},
+            headers={
+                "Authorization": f"Bearer {self._apikey}",
+                "User-Agent": "fish-audio/python/legacy",
+            },
             timeout=None,
         )
 
     def init_sync_client(self):
         self._sync_client = httpx.Client(
             base_url=self._base_url,
-            headers={"Authorization": f"Bearer {self._apikey}"},
+            headers={
+                "Authorization": f"Bearer {self._apikey}",
+                "User-Agent": "fish-audio/python/legacy",
+            },
             timeout=None,
         )
 
