@@ -34,6 +34,7 @@ class TestTTSWebSocketIntegration:
         # Save the audio
         save_audio(audio_chunks, "test_websocket_streaming.mp3")
 
+    @pytest.mark.flaky(reruns=2, reruns_delay=1)
     def test_websocket_streaming_with_different_models(self, client, save_audio):
         """Test WebSocket streaming with different models."""
         import time
@@ -219,6 +220,7 @@ class TestAsyncTTSWebSocketIntegration:
         save_audio(audio_chunks, "test_async_websocket_streaming.mp3")
 
     @pytest.mark.asyncio
+    @pytest.mark.flaky(reruns=2, reruns_delay=1)
     async def test_async_websocket_streaming_with_different_models(
         self, async_client, save_audio
     ):

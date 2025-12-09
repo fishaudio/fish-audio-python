@@ -60,6 +60,7 @@ dev = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=5.0.0",
+    "pytest-rerunfailures>=16.0.1",
     "python-dotenv>=1.0.1",
     "ruff>=0.14.3",
 ]
