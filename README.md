@@ -1,3 +1,5 @@
+![python.png](.github/assets/python.png)
+
 # Fish Audio Python SDK
 
 [![PyPI version](https://img.shields.io/pypi/v/fish-audio-sdk.svg)](https://badge.fury.io/py/fish-audio-sdk)
