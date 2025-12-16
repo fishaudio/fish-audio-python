@@ -39,7 +39,10 @@ class TestTTSWebSocketIntegration:
         "model",
         [
             pytest.param(
-                m, marks=pytest.mark.xfail(reason="WebSocket unreliable for legacy models")
+                m,
+                marks=pytest.mark.xfail(
+                    reason="WebSocket unreliable for legacy models"
+                ),
             )
             if not m.startswith("s1")
             else m
@@ -228,7 +231,10 @@ class TestAsyncTTSWebSocketIntegration:
         "model",
         [
             pytest.param(
-                m, marks=pytest.mark.xfail(reason="WebSocket unreliable for legacy models")
+                m,
+                marks=pytest.mark.xfail(
+                    reason="WebSocket unreliable for legacy models"
+                ),
             )
             if not m.startswith("s1")
             else m
