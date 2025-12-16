@@ -1,4 +1,4 @@
-![python.png](.github/assets/python.png)
+![python.png](https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/python.png)
 
 # Fish Audio Python SDK
 
