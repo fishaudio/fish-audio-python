@@ -27,7 +27,7 @@ def save(audio: Union[bytes, Iterator[bytes]], filename: str) -> None:
         ```
     """
     # Consolidate iterator to bytes if needed
-    if isinstance(audio, Iterator):
+    if not isinstance(audio, bytes):
         audio = b"".join(audio)
 
     # Write to file

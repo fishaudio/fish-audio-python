@@ -11,6 +11,7 @@ dependencies = [
     "ormsgpack>=1.5.0",
     "pydantic>=2.9.1",
     "httpx-ws>=0.6.2",
+    "typing-extensions>=4.15.0",
 ]
 requires-python = ">=3.9"
 readme = "README.md"
@@ -55,6 +56,7 @@ asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
+    "fish-audio-sdk[utils]",
     "mypy>=1.14.1",
     "pydoc-markdown>=4.8.2",
     "pytest>=8.3.5",
@@ -81,3 +83,6 @@ pages = [
     {title = "Utils", name="fishaudio/utils", contents = ["fishaudio.utils.*"] },
     {title = "Exceptions", name="fishaudio/exceptions", contents = ["fishaudio.exceptions.*"] },
 ]
+
+[tool.uv.sources]
+fish-audio-sdk = { workspace = true }

@@ -51,13 +51,13 @@ def play(
         ```
     """
     # Consolidate iterator to bytes
-    if isinstance(audio, Iterator):
+    if not isinstance(audio, bytes):
         audio = b"".join(audio)
 
     # Notebook mode
     if notebook:
         try:
-            from IPython.display import Audio, display
+            from IPython.display import Audio, display  # ty: ignore[unresolved-import]
 
             display(Audio(audio, rate=44100, autoplay=True))
             return
