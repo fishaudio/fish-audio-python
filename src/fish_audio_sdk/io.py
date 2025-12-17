@@ -6,12 +6,12 @@ from typing import (
     AsyncGenerator,
     Awaitable,
     Callable,
-    Concatenate,
     Generator,
     Generic,
-    ParamSpec,
     TypeVar,
 )
+
+from typing_extensions import Concatenate, ParamSpec
 
 import httpx
 import httpx._client

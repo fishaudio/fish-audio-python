@@ -1,14 +1,14 @@
 """Audio saving utility."""
 
-from typing import Iterator, Union
+from typing import Iterable, Union
 
 
-def save(audio: Union[bytes, Iterator[bytes]], filename: str) -> None:
+def save(audio: Union[bytes, Iterable[bytes]], filename: str) -> None:
     """
     Save audio to a file.
 
     Args:
-        audio: Audio bytes or iterator of bytes
+        audio: Audio bytes or iterable of bytes
         filename: Path to save the audio file
 
     Examples:
@@ -27,7 +27,7 @@ def save(audio: Union[bytes, Iterator[bytes]], filename: str) -> None:
         ```
     """
     # Consolidate iterator to bytes if needed
-    if isinstance(audio, Iterator):
+    if not isinstance(audio, bytes):
         audio = b"".join(audio)
 
     # Write to file
