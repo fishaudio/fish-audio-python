@@ -2,7 +2,7 @@
 
 import io
 import subprocess
-from typing import Iterator, Union
+from typing import Iterable, Union
 
 from ..exceptions import DependencyError
 
@@ -17,7 +17,7 @@ def _is_installed(command: str) -> bool:
 
 
 def play(
-    audio: Union[bytes, Iterator[bytes]],
+    audio: Union[bytes, Iterable[bytes]],
     *,
     notebook: bool = False,
     use_ffmpeg: bool = True,
@@ -26,7 +26,7 @@ def play(
     Play audio using various playback methods.
 
     Args:
-        audio: Audio bytes or iterator of bytes
+        audio: Audio bytes or iterable of bytes
         notebook: Use Jupyter notebook playback (IPython.display.Audio)
         use_ffmpeg: Use ffplay for playback (default, falls back to sounddevice)
 
