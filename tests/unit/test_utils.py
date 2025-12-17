@@ -62,16 +62,24 @@ class TestPlay:
             assert "ffplay" in str(exc_info.value)
 
     def test_play_sounddevice_mode(self):
-        """Test using sounddevice directly."""
-        # Since we can't easily test sounddevice without installing it,
-        # just test that the error is raised when it's not available
-        with patch(
-            "subprocess.run", side_effect=[subprocess.CalledProcessError(1, "which")]
-        ):
+        """Test using sounddevice for playback."""
+        mock_sd = Mock()
+        mock_sf = Mock()
+        mock_sf.read.return_value = ([0.1, 0.2], 44100)
+
+        with patch.dict("sys.modules", {"sounddevice": mock_sd, "soundfile": mock_sf}):
+            play(b"audio", use_ffmpeg=False)
+
+            mock_sf.read.assert_called_once()
+            mock_sd.play.assert_called_once()
+            mock_sd.wait.assert_called_once()
+
+    def test_play_sounddevice_not_installed(self):
+        """Test error when sounddevice not installed."""
+        with patch.dict("sys.modules", {"sounddevice": None, "soundfile": None}):
             with pytest.raises(DependencyError) as exc_info:
                 play(b"audio", use_ffmpeg=False)
 
-            # Should mention sounddevice in the error
             assert "sounddevice" in str(exc_info.value) or "fishaudio[utils]" in str(
                 exc_info.value
             )

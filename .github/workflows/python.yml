@@ -32,8 +32,8 @@ jobs:
           python-version: "3"
       - name: Install dependencies
         run: uv sync
-      - name: Run mypy
-        run: uv run mypy src/fishaudio --ignore-missing-imports
+      - name: Run ty
+        run: uv run ty check
 
   test:
     name: Test Python ${{ matrix.python-version }}

@@ -57,7 +57,6 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = [
     "fish-audio-sdk[utils]",
-    "mypy>=1.14.1",
     "pydoc-markdown>=4.8.2",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.24.0",
