@@ -33,7 +33,7 @@ Visibility = Literal["public", "unlisted", "private"]
 TrainMode = Literal["fast"]
 
 # Model state types
-ModelState = Literal["created", "training", "trained", "failed", "ready"]
+ModelState = Literal["created", "training", "trained", "failed"]
 
 # Latency modes
 LatencyMode = Literal["normal", "balanced"]

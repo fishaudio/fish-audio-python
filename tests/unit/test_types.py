@@ -165,14 +165,8 @@ class TestTTSTypes:
         assert request.early_stop_threshold == 0.5
 
 
-class TestVoiceStates:
-    """Test Voice model with different states and visibility."""
-
-    def test_voice_with_ready_state(self, sample_voice_response):
-        """Test Voice model with 'ready' state."""
-        sample_voice_response["state"] = "ready"
-        voice = Voice.model_validate(sample_voice_response)
-        assert voice.state == "ready"
+class TestVoiceVisibility:
+    """Test Voice model with updated visibility."""
 
     def test_voice_with_unlisted_visibility(self, sample_voice_response):
         """Test Voice model with 'unlisted' visibility."""
