@@ -27,13 +27,13 @@ Model = Literal["speech-1.5", "speech-1.6", "s1"]
 AudioFormat = Literal["wav", "pcm", "mp3", "opus"]
 
 # Visibility types
-Visibility = Literal["public", "unlist", "private"]
+Visibility = Literal["public", "unlisted", "private"]
 
 # Training mode types
 TrainMode = Literal["fast"]
 
 # Model state types
-ModelState = Literal["created", "training", "trained", "failed"]
+ModelState = Literal["created", "training", "trained", "failed", "ready"]
 
 # Latency modes
 LatencyMode = Literal["normal", "balanced"]

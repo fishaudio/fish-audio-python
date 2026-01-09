@@ -41,6 +41,11 @@ def _config_to_tts_request(config: TTSConfig, text: str) -> TTSRequest:
         prosody=config.prosody,
         top_p=config.top_p,
         temperature=config.temperature,
+        max_new_tokens=config.max_new_tokens,
+        repetition_penalty=config.repetition_penalty,
+        min_chunk_length=config.min_chunk_length,
+        condition_on_previous_chunks=config.condition_on_previous_chunks,
+        early_stop_threshold=config.early_stop_threshold,
     )
 
 

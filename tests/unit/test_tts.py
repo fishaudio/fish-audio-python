@@ -418,6 +418,51 @@ class TestTTSClient:
         assert payload["latency"] == "normal"
         assert payload["prosody"]["speed"] == 1.3
 
+    def test_convert_with_new_advanced_parameters(
+        self, tts_client, mock_client_wrapper
+    ):
+        """Test TTS with new advanced generation parameters."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        config = TTSConfig(
+            max_new_tokens=2048,
+            repetition_penalty=1.5,
+            min_chunk_length=100,
+            condition_on_previous_chunks=False,
+            early_stop_threshold=0.8,
+        )
+        tts_client.convert(text="Hello", config=config)
+
+        # Verify new parameters in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["max_new_tokens"] == 2048
+        assert payload["repetition_penalty"] == 1.5
+        assert payload["min_chunk_length"] == 100
+        assert payload["condition_on_previous_chunks"] is False
+        assert payload["early_stop_threshold"] == 0.8
+
+    def test_convert_new_parameters_have_defaults(
+        self, tts_client, mock_client_wrapper
+    ):
+        """Test TTS default values for new advanced parameters."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        tts_client.convert(text="Hello")
+
+        # Verify default values for new parameters in payload
+        call_args = mock_client_wrapper.request.call_args
+        payload = ormsgpack.unpackb(call_args[1]["content"])
+        assert payload["max_new_tokens"] == 1024
+        assert payload["repetition_penalty"] == 1.2
+        assert payload["min_chunk_length"] == 50
+        assert payload["condition_on_previous_chunks"] is True
+        assert payload["early_stop_threshold"] == 1.0
+
 
 class TestAsyncTTSClient:
     """Test asynchronous AsyncTTSClient."""
