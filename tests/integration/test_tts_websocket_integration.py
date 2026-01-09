@@ -34,7 +34,6 @@ class TestTTSWebSocketIntegration:
         # Save the audio
         save_audio(audio_chunks, "test_websocket_streaming.mp3")
 
-    @pytest.mark.flaky(reruns=9, reruns_delay=1)
     @pytest.mark.parametrize(
         "model",
         [
@@ -226,7 +225,6 @@ class TestAsyncTTSWebSocketIntegration:
         save_audio(audio_chunks, "test_async_websocket_streaming.mp3")
 
     @pytest.mark.asyncio
-    @pytest.mark.flaky(reruns=9, reruns_delay=1)
     @pytest.mark.parametrize(
         "model",
         [

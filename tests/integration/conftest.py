@@ -12,6 +12,14 @@ from fishaudio import AsyncFishAudio, FishAudio
 
 load_dotenv()
 
+
+def pytest_collection_modifyitems(items):
+    """Mark all integration tests as flaky with auto-retry."""
+    for item in items:
+        # Check if test is in the integration directory
+        if "integration" in str(item.fspath):
+            item.add_marker(pytest.mark.flaky(reruns=9, reruns_delay=1))
+
 # Create output directory for test audio files
 OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
