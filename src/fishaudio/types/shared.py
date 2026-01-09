@@ -27,7 +27,7 @@ Model = Literal["speech-1.5", "speech-1.6", "s1"]
 AudioFormat = Literal["wav", "pcm", "mp3", "opus"]
 
 # Visibility types
-Visibility = Literal["public", "unlist", "private"]
+Visibility = Literal["public", "unlisted", "private"]
 
 # Training mode types
 TrainMode = Literal["fast"]

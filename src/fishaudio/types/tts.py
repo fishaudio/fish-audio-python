@@ -75,6 +75,11 @@ class TTSConfig(BaseModel):
         top_p: Nucleus sampling parameter for token selection. Range: 0.0-1.0. Default: 0.7
         temperature: Randomness in generation. Range: 0.0-1.0. Default: 0.7.
             Higher = more varied, lower = more consistent
+        max_new_tokens: Maximum number of tokens to generate. Default: 1024
+        repetition_penalty: Penalty for repeated tokens. Default: 1.2
+        min_chunk_length: Minimum chunk length for generation. Default: 50
+        condition_on_previous_chunks: Whether to condition generation on previous chunks. Default: True
+        early_stop_threshold: Threshold for early stopping. Default: 1.0
     """
 
     # Audio output settings
@@ -96,6 +101,13 @@ class TTSConfig(BaseModel):
     # Model parameters
     top_p: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
     temperature: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+
+    # Advanced generation parameters
+    max_new_tokens: int = 1024
+    repetition_penalty: float = 1.2
+    min_chunk_length: int = 50
+    condition_on_previous_chunks: bool = True
+    early_stop_threshold: float = 1.0
 
 
 class TTSRequest(BaseModel):
@@ -119,6 +131,11 @@ class TTSRequest(BaseModel):
         prosody: Speech speed and volume settings. Default: None
         top_p: Nucleus sampling for token selection. Range: 0.0-1.0. Default: 0.7
         temperature: Randomness in generation. Range: 0.0-1.0. Default: 0.7
+        max_new_tokens: Maximum number of tokens to generate. Default: 1024
+        repetition_penalty: Penalty for repeated tokens. Default: 1.2
+        min_chunk_length: Minimum chunk length for generation. Default: 50
+        condition_on_previous_chunks: Whether to condition generation on previous chunks. Default: True
+        early_stop_threshold: Threshold for early stopping. Default: 1.0
     """
 
     text: str
@@ -134,6 +151,11 @@ class TTSRequest(BaseModel):
     prosody: Optional[Prosody] = None
     top_p: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
     temperature: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    max_new_tokens: int = 1024
+    repetition_penalty: float = 1.2
+    min_chunk_length: int = 50
+    condition_on_previous_chunks: bool = True
+    early_stop_threshold: float = 1.0
 
 
 # WebSocket event types for streaming TTS

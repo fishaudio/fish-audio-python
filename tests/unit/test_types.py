@@ -11,6 +11,8 @@ from fishaudio.types import (
     Package,
     ReferenceAudio,
     Prosody,
+    TTSConfig,
+    TTSRequest,
 )
 
 
@@ -96,3 +98,78 @@ class TestTTSTypes:
         prosody = Prosody(speed=1.5, volume=0.5)
         assert prosody.speed == 1.5
         assert prosody.volume == 0.5
+
+    def test_tts_config_defaults(self):
+        """Test TTSConfig default values including new parameters."""
+        config = TTSConfig()
+        # Existing defaults
+        assert config.format == "mp3"
+        assert config.mp3_bitrate == 128
+        assert config.opus_bitrate == 32
+        assert config.normalize is True
+        assert config.chunk_length == 200
+        assert config.latency == "balanced"
+        assert config.top_p == 0.7
+        assert config.temperature == 0.7
+        # New parameter defaults
+        assert config.max_new_tokens == 1024
+        assert config.repetition_penalty == 1.2
+        assert config.min_chunk_length == 50
+        assert config.condition_on_previous_chunks is True
+        assert config.early_stop_threshold == 1.0
+
+    def test_tts_config_custom_new_parameters(self):
+        """Test TTSConfig with custom values for new parameters."""
+        config = TTSConfig(
+            max_new_tokens=2048,
+            repetition_penalty=1.5,
+            min_chunk_length=100,
+            condition_on_previous_chunks=False,
+            early_stop_threshold=0.8,
+        )
+        assert config.max_new_tokens == 2048
+        assert config.repetition_penalty == 1.5
+        assert config.min_chunk_length == 100
+        assert config.condition_on_previous_chunks is False
+        assert config.early_stop_threshold == 0.8
+
+    def test_tts_request_defaults(self):
+        """Test TTSRequest default values including new parameters."""
+        request = TTSRequest(text="Hello world")
+        # Existing defaults
+        assert request.text == "Hello world"
+        assert request.format == "mp3"
+        assert request.chunk_length == 200
+        assert request.latency == "balanced"
+        # New parameter defaults
+        assert request.max_new_tokens == 1024
+        assert request.repetition_penalty == 1.2
+        assert request.min_chunk_length == 50
+        assert request.condition_on_previous_chunks is True
+        assert request.early_stop_threshold == 1.0
+
+    def test_tts_request_custom_new_parameters(self):
+        """Test TTSRequest with custom values for new parameters."""
+        request = TTSRequest(
+            text="Hello world",
+            max_new_tokens=512,
+            repetition_penalty=1.0,
+            min_chunk_length=25,
+            condition_on_previous_chunks=False,
+            early_stop_threshold=0.5,
+        )
+        assert request.max_new_tokens == 512
+        assert request.repetition_penalty == 1.0
+        assert request.min_chunk_length == 25
+        assert request.condition_on_previous_chunks is False
+        assert request.early_stop_threshold == 0.5
+
+
+class TestVoiceVisibility:
+    """Test Voice model with updated visibility."""
+
+    def test_voice_with_unlisted_visibility(self, sample_voice_response):
+        """Test Voice model with 'unlisted' visibility."""
+        sample_voice_response["visibility"] = "unlisted"
+        voice = Voice.model_validate(sample_voice_response)
+        assert voice.visibility == "unlisted"
