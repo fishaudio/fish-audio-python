@@ -57,7 +57,7 @@ class Voice(BaseModel):
         created_at: Timestamp when the model was created
         updated_at: Timestamp when the model was last updated
         languages: List of supported language codes (e.g., ["en", "zh"])
-        visibility: Model visibility. Options: "public", "private", "unlisted"
+        visibility: Model visibility. Options: "public", "private", "unlist"
         lock_visibility: Whether visibility setting is locked
         like_count: Number of likes the model has received
         mark_count: Number of bookmarks/favorites
