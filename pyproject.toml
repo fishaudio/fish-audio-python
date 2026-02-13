@@ -106,6 +106,9 @@ ignore = [
     "E501",     # Line too long (handled by ruff format)
 ]
 
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
 
