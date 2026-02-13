@@ -18,7 +18,7 @@ Expected Output:
     - Audio file contains the spoken text
 """
 
-import os
+from pathlib import Path
 
 from fishaudio import FishAudio
 from fishaudio.utils import save
@@ -44,7 +44,7 @@ def main():
     save(audio, output_file)
 
     print(f"✓ Audio saved to {output_file}")
-    print(f"  File size: {os.path.getsize(output_file) / 1024:.2f} KB")
+    print(f"  File size: {Path(output_file).stat().st_size / 1024:.2f} KB")
 
 
 if __name__ == "__main__":

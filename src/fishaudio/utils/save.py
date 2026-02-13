@@ -1,6 +1,7 @@
 """Audio saving utility."""
 
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Union
 
 
@@ -32,5 +33,5 @@ def save(audio: Union[bytes, Iterable[bytes]], filename: str) -> None:
         audio = b"".join(audio)
 
     # Write to file
-    with open(filename, "wb") as f:
+    with Path(filename).open("wb") as f:
         f.write(audio)

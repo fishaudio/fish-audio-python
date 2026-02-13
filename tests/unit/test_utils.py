@@ -16,20 +16,20 @@ class TestSave:
         """Test saving bytes to file."""
         audio = b"fake audio data"
 
-        with patch("builtins.open", mock_open()) as m:
+        with patch("pathlib.Path.open", mock_open()) as m:
             save(audio, "output.mp3")
 
-            m.assert_called_once_with("output.mp3", "wb")
+            m.assert_called_once_with("wb")
             m().write.assert_called_once_with(audio)
 
     def test_save_iterator(self):
         """Test saving iterator to file."""
         audio = iter([b"chunk1", b"chunk2", b"chunk3"])
 
-        with patch("builtins.open", mock_open()) as m:
+        with patch("pathlib.Path.open", mock_open()) as m:
             save(audio, "output.mp3")
 
-            m.assert_called_once_with("output.mp3", "wb")
+            m.assert_called_once_with("wb")
             # Should consolidate chunks
             m().write.assert_called_once_with(b"chunk1chunk2chunk3")
 
