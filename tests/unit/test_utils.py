@@ -1,7 +1,7 @@
 """Tests for utility functions."""
 
 import subprocess
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -12,26 +12,24 @@ from fishaudio.utils import play, save, stream
 class TestSave:
     """Test save() function."""
 
-    def test_save_bytes(self):
+    def test_save_bytes(self, tmp_path):
         """Test saving bytes to file."""
         audio = b"fake audio data"
+        output_file = tmp_path / "output.mp3"
 
-        with patch("pathlib.Path.open", mock_open()) as m:
-            save(audio, "output.mp3")
+        save(audio, str(output_file))
 
-            m.assert_called_once_with("wb")
-            m().write.assert_called_once_with(audio)
+        assert output_file.read_bytes() == audio
 
-    def test_save_iterator(self):
+    def test_save_iterator(self, tmp_path):
         """Test saving iterator to file."""
         audio = iter([b"chunk1", b"chunk2", b"chunk3"])
+        output_file = tmp_path / "output.mp3"
 
-        with patch("pathlib.Path.open", mock_open()) as m:
-            save(audio, "output.mp3")
+        save(audio, str(output_file))
 
-            m.assert_called_once_with("wb")
-            # Should consolidate chunks
-            m().write.assert_called_once_with(b"chunk1chunk2chunk3")
+        # Should consolidate chunks
+        assert output_file.read_bytes() == b"chunk1chunk2chunk3"
 
 
 class TestPlay:
