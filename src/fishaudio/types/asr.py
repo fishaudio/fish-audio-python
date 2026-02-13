@@ -1,7 +1,5 @@
 """ASR (Automatic Speech Recognition) related types."""
 
-from typing import List
-
 from pydantic import BaseModel
 
 
@@ -30,4 +28,4 @@ class ASRResponse(BaseModel):
 
     text: str
     duration: float  # Duration in milliseconds
-    segments: List[ASRSegment]
+    segments: list[ASRSegment]

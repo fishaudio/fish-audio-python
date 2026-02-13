@@ -2,12 +2,12 @@
 
 import os
 from json import JSONDecodeError
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import httpx
 
-from .._version import __version__
-from ..exceptions import (
+from fishaudio._version import __version__
+from fishaudio.exceptions import (
     APIError,
     AuthenticationError,
     NotFoundError,
@@ -15,6 +15,7 @@ from ..exceptions import (
     RateLimitError,
     ServerError,
 )
+
 from .request_options import RequestOptions
 
 
@@ -32,16 +33,15 @@ def _raise_for_status(response: httpx.Response) -> None:
     # Raise specific exception based on status code
     if status == 401:
         raise AuthenticationError(status, message, response.text)
-    elif status == 403:
+    if status == 403:
         raise PermissionError(status, message, response.text)
-    elif status == 404:
+    if status == 404:
         raise NotFoundError(status, message, response.text)
-    elif status == 429:
+    if status == 429:
         raise RateLimitError(status, message, response.text)
-    elif status >= 500:
+    if status >= 500:
         raise ServerError(status, message, response.text)
-    else:
-        raise APIError(status, message, response.text)
+    raise APIError(status, message, response.text)
 
 
 class BaseClientWrapper:
@@ -61,8 +61,8 @@ class BaseClientWrapper:
         self.base_url = base_url
 
     def get_headers(
-        self, additional_headers: Optional[Dict[str, str]] = None
-    ) -> Dict[str, str]:
+        self, additional_headers: Optional[dict[str, str]] = None
+    ) -> dict[str, str]:
         """Build headers including authentication and user agent."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -73,7 +73,7 @@ class BaseClientWrapper:
         return headers
 
     def _prepare_request_kwargs(
-        self, request_options: Optional[RequestOptions], kwargs: Dict[str, Any]
+        self, request_options: Optional[RequestOptions], kwargs: dict[str, Any]
     ) -> None:
         """Prepare request kwargs by merging headers, timeout, and query params."""
         # Merge headers

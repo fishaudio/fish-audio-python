@@ -1,4 +1,6 @@
-from typing import Generator, Literal
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal
 
 import ormsgpack
 
@@ -7,12 +9,15 @@ from .schemas import (
     APICreditEntity,
     ASRRequest,
     ASRResponse,
-    ModelEntity,
     Backends,
+    ModelEntity,
     PackageEntity,
     PaginatedResponse,
     TTSRequest,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class Session(RemoteCall):

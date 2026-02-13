@@ -1,14 +1,15 @@
 """Tests for main client classes."""
 
-import pytest
 from unittest.mock import patch
 
-from fishaudio import FishAudio, AsyncFishAudio
+import pytest
+
+from fishaudio import AsyncFishAudio, FishAudio
 from fishaudio.resources import (
-    TTSClient,
     AsyncTTSClient,
-    VoicesClient,
     AsyncVoicesClient,
+    TTSClient,
+    VoicesClient,
 )
 
 

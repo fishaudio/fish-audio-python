@@ -1,6 +1,6 @@
 """WebSocket-level options for WebSocket connections."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 class WebSocketOptions:
@@ -40,7 +40,7 @@ class WebSocketOptions:
         self.max_message_size_bytes = max_message_size_bytes
         self.queue_size = queue_size
 
-    def to_httpx_ws_kwargs(self) -> Dict[str, Any]:
+    def to_httpx_ws_kwargs(self) -> dict[str, Any]:
         """Convert to kwargs dict for httpx_ws aconnect_ws/connect_ws."""
         kwargs = {}
         if self.keepalive_ping_timeout_seconds is not None:

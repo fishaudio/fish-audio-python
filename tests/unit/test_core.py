@@ -1,13 +1,14 @@
 """Tests for core components."""
 
-import pytest
 from unittest.mock import patch
+
 import httpx
+import pytest
 
 from fishaudio.core import (
     OMIT,
-    ClientWrapper,
     AsyncClientWrapper,
+    ClientWrapper,
     RequestOptions,
     WebSocketOptions,
 )
@@ -100,9 +101,11 @@ class TestClientWrapper:
         assert wrapper.base_url == mock_base_url
 
     def test_init_without_api_key_raises(self):
-        with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="API key must be provided"):
-                ClientWrapper()
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            pytest.raises(ValueError, match="API key must be provided"),
+        ):
+            ClientWrapper()
 
     def test_init_with_env_var(self, mock_api_key):
         with patch.dict("os.environ", {"FISH_API_KEY": mock_api_key}):
@@ -133,9 +136,11 @@ class TestAsyncClientWrapper:
         assert wrapper.base_url == mock_base_url
 
     def test_init_without_api_key_raises(self):
-        with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="API key must be provided"):
-                AsyncClientWrapper()
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            pytest.raises(ValueError, match="API key must be provided"),
+        ):
+            AsyncClientWrapper()
 
     def test_get_headers(self, mock_api_key):
         wrapper = AsyncClientWrapper(api_key=mock_api_key)

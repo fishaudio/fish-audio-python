@@ -1,6 +1,6 @@
 """Shared types used across the SDK."""
 
-from typing import Generic, List, Literal, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel
 
@@ -17,7 +17,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     """
 
     total: int
-    items: List[T]
+    items: list[T]
 
 
 # Model types

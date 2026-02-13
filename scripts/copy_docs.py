@@ -10,6 +10,8 @@ Example:
     python scripts/copy_docs.py sdk docs  # In CI context
 """
 
+from __future__ import annotations
+
 import argparse
 import shutil
 from pathlib import Path

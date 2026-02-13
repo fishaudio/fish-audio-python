@@ -5,8 +5,9 @@ from typing import get_args
 import pytest
 
 from fishaudio import WebSocketOptions
-from fishaudio.types import Prosody, TTSConfig, TextEvent, FlushEvent
+from fishaudio.types import FlushEvent, Prosody, TextEvent, TTSConfig
 from fishaudio.types.shared import Model
+
 from .conftest import TEST_REFERENCE_ID
 
 
@@ -112,8 +113,7 @@ class TestTTSWebSocketIntegration:
                 "And that all audio is received correctly. ",
                 "Finally, we end the stream here.",
             ]
-            for sentence in sentences:
-                yield sentence
+            yield from sentences
 
         audio_chunks = list(client.tts.stream_websocket(text_stream()))
 
@@ -185,8 +185,7 @@ class TestTTSWebSocketIntegration:
                 "Long-form content generation is now much more reliable. ",
                 "The implementation passes through all necessary parameters to the underlying httpx_ws library. ",
             ]
-            for sentence in long_text:
-                yield sentence
+            yield from long_text
 
         # This should succeed with increased timeout
         audio_chunks = list(

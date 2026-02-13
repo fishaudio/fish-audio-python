@@ -1,14 +1,13 @@
 import asyncio
+from collections.abc import AsyncGenerator, AsyncIterable, Generator, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import AsyncGenerator, AsyncIterable, Generator, Iterable
 
 import httpx
 import ormsgpack
-from httpx_ws import WebSocketDisconnect, connect_ws, aconnect_ws
+from httpx_ws import WebSocketDisconnect, aconnect_ws, connect_ws
 
 from .exceptions import WebSocketErr
-
-from .schemas import Backends, CloseEvent, StartEvent, TTSRequest, TextEvent
+from .schemas import Backends, CloseEvent, StartEvent, TextEvent, TTSRequest
 
 
 class WebSocketSession:

@@ -1,9 +1,9 @@
 """Audio streaming utility."""
 
 import subprocess
-from typing import Iterator
+from collections.abc import Iterator
 
-from ..exceptions import DependencyError
+from fishaudio.exceptions import DependencyError
 
 
 def _is_installed(command: str) -> bool:

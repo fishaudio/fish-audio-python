@@ -1,10 +1,11 @@
 """Tests for Account namespace client."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock
 from decimal import Decimal
+from unittest.mock import AsyncMock, Mock
 
-from fishaudio.core import ClientWrapper, AsyncClientWrapper, RequestOptions
+import pytest
+
+from fishaudio.core import AsyncClientWrapper, ClientWrapper, RequestOptions
 from fishaudio.resources.account import AccountClient, AsyncAccountClient
 from fishaudio.types import Credits, Package
 

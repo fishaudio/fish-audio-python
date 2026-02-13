@@ -80,10 +80,7 @@ def save_audio():
         Returns:
             Path to the saved file
         """
-        if isinstance(audio, bytes):
-            complete_audio = audio
-        else:
-            complete_audio = b"".join(audio)
+        complete_audio = audio if isinstance(audio, bytes) else b"".join(audio)
         output_file = OUTPUT_DIR / filename
         output_file.write_bytes(complete_audio)
         return output_file

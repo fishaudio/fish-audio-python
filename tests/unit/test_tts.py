@@ -1,12 +1,13 @@
 """Tests for TTS namespace client."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock
-import ormsgpack
+from unittest.mock import AsyncMock, Mock
 
-from fishaudio.core import ClientWrapper, AsyncClientWrapper, RequestOptions
-from fishaudio.resources.tts import TTSClient, AsyncTTSClient
-from fishaudio.types import ReferenceAudio, Prosody, TTSConfig
+import ormsgpack
+import pytest
+
+from fishaudio.core import AsyncClientWrapper, ClientWrapper, RequestOptions
+from fishaudio.resources.tts import AsyncTTSClient, TTSClient
+from fishaudio.types import Prosody, ReferenceAudio, TTSConfig
 
 
 @pytest.fixture

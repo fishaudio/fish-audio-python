@@ -1,6 +1,6 @@
 """TTS-related types."""
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -95,7 +95,7 @@ class TTSConfig(BaseModel):
 
     # Voice/style settings
     reference_id: Optional[str] = None
-    references: List[ReferenceAudio] = []
+    references: list[ReferenceAudio] = []
     prosody: Optional[Prosody] = None
 
     # Model parameters
@@ -144,7 +144,7 @@ class TTSRequest(BaseModel):
     sample_rate: Optional[int] = None
     mp3_bitrate: Literal[64, 128, 192] = 128
     opus_bitrate: Literal[-1000, 24, 32, 48, 64] = 32
-    references: List[ReferenceAudio] = []
+    references: list[ReferenceAudio] = []
     reference_id: Optional[str] = None
     normalize: bool = True
     latency: LatencyMode = "balanced"

@@ -1,7 +1,8 @@
 """Integration tests for Account functionality."""
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from fishaudio.types import Credits, Package
 

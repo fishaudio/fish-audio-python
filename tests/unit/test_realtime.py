@@ -1,17 +1,18 @@
 """Tests for realtime WebSocket streaming helpers."""
 
-import pytest
 from unittest.mock import Mock
+
 import ormsgpack
+import pytest
 from httpx_ws import WebSocketDisconnect
 
-from fishaudio.resources.realtime import (
-    _should_stop,
-    _process_audio_event,
-    iter_websocket_audio,
-    aiter_websocket_audio,
-)
 from fishaudio.exceptions import WebSocketError
+from fishaudio.resources.realtime import (
+    _process_audio_event,
+    _should_stop,
+    aiter_websocket_audio,
+    iter_websocket_audio,
+)
 
 
 class TestShouldStop:
@@ -260,8 +261,7 @@ class TestAiterWebsocketAudio:
             call_count[0] += 1
             if call_count[0] == 1:
                 return ormsgpack.packb({"event": "audio", "audio": b"chunk1"})
-            else:
-                raise WebSocketDisconnect()
+            raise WebSocketDisconnect()
 
         mock_ws.receive_bytes = mock_receive_bytes
 
