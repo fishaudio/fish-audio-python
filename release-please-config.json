@@ -1,0 +1,11 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "package-name": "fish-audio-sdk",
+      "extra-files": [
+        "src/fishaudio/_version.py"
+      ]
+    }
+  }
+}
