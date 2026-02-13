@@ -117,6 +117,8 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
 
   publish:
     name: Publish to PyPI
