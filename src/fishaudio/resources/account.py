@@ -2,8 +2,8 @@
 
 from typing import Optional
 
-from ..core import OMIT, AsyncClientWrapper, ClientWrapper, RequestOptions
-from ..types import Credits, Package
+from fishaudio.core import OMIT, AsyncClientWrapper, ClientWrapper, RequestOptions
+from fishaudio.types import Credits, Package
 
 
 class AccountClient:

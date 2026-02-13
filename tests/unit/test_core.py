@@ -1,13 +1,14 @@
 """Tests for core components."""
 
-import pytest
 from unittest.mock import patch
+
 import httpx
+import pytest
 
 from fishaudio.core import (
     OMIT,
-    ClientWrapper,
     AsyncClientWrapper,
+    ClientWrapper,
     RequestOptions,
     WebSocketOptions,
 )

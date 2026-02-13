@@ -1,11 +1,12 @@
 """Tests for utility functions."""
 
-import pytest
-from unittest.mock import Mock, patch, mock_open
 import subprocess
+from unittest.mock import Mock, mock_open, patch
 
-from fishaudio.utils import play, save, stream
+import pytest
+
 from fishaudio.exceptions import DependencyError
+from fishaudio.utils import play, save, stream
 
 
 class TestSave:

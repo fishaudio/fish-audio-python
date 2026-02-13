@@ -2,9 +2,10 @@
 
 import io
 import subprocess
-from typing import Iterable, Union
+from collections.abc import Iterable
+from typing import Union
 
-from ..exceptions import DependencyError
+from fishaudio.exceptions import DependencyError
 
 
 def _is_installed(command: str) -> bool:

@@ -1,6 +1,7 @@
 """Audio saving utility."""
 
-from typing import Iterable, Union
+from collections.abc import Iterable
+from typing import Union
 
 
 def save(audio: Union[bytes, Iterable[bytes]], filename: str) -> None:

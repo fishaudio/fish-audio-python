@@ -1,7 +1,7 @@
 """Voice and model management types."""
 
 import datetime
-from typing import List, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -75,11 +75,11 @@ class Voice(BaseModel):
     cover_image: str
     train_mode: TrainMode
     state: ModelState
-    tags: List[str]
-    samples: List[Sample]
+    tags: list[str]
+    samples: list[Sample]
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    languages: List[str]
+    languages: list[str]
     visibility: Visibility
     lock_visibility: bool
     like_count: int

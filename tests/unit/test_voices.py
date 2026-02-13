@@ -1,11 +1,12 @@
 """Tests for voices namespace client."""
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from fishaudio.core import ClientWrapper
 from fishaudio.resources.voices import VoicesClient
-from fishaudio.types import Voice, PaginatedResponse
+from fishaudio.types import PaginatedResponse, Voice
 
 
 @pytest.fixture

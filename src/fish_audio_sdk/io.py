@@ -1,21 +1,20 @@
+from __future__ import annotations
+
 import dataclasses
 import typing
+from collections.abc import AsyncGenerator, Awaitable, Generator
 from http.client import responses as http_responses
 from typing import (
     Any,
-    AsyncGenerator,
-    Awaitable,
     Callable,
-    Generator,
     Generic,
     TypeVar,
 )
 
-from typing_extensions import Concatenate, ParamSpec
-
 import httpx
 import httpx._client
 import httpx._types
+from typing_extensions import Concatenate, ParamSpec
 
 from .exceptions import HttpCodeErr
 
@@ -194,8 +193,7 @@ def convert(
             return exc.value
         raise RuntimeError("Generator did not stop")
 
-    call = IOCallDescriptor(async_wrapper, sync_wrapper)
-    return call
+    return IOCallDescriptor(async_wrapper, sync_wrapper)
 
 
 GStream = G[Generator[bytes, bytes, None]]
@@ -257,5 +255,4 @@ def convert_stream(
 
         raise RuntimeError("Generator did not stop")
 
-    call = StreamIOCallDescriptor(async_wrapper, sync_wrapper)
-    return call
+    return StreamIOCallDescriptor(async_wrapper, sync_wrapper)

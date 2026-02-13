@@ -1,14 +1,15 @@
 """Real-time WebSocket streaming helpers."""
 
-from typing import Any, AsyncIterator, Dict, Iterator, Optional
+from collections.abc import AsyncIterator, Iterator
+from typing import Any, Optional
 
 import ormsgpack
 from httpx_ws import WebSocketDisconnect
 
-from ..exceptions import WebSocketError
+from fishaudio.exceptions import WebSocketError
 
 
-def _should_stop(data: Dict[str, Any]) -> bool:
+def _should_stop(data: dict[str, Any]) -> bool:
     """
     Check if WebSocket event signals stream should stop.
 
@@ -21,7 +22,7 @@ def _should_stop(data: Dict[str, Any]) -> bool:
     return data.get("event") == "finish" and data.get("reason") == "stop"
 
 
-def _process_audio_event(data: Dict[str, Any]) -> Optional[bytes]:
+def _process_audio_event(data: dict[str, Any]) -> Optional[bytes]:
     """
     Process a WebSocket audio event.
 
@@ -36,7 +37,7 @@ def _process_audio_event(data: Dict[str, Any]) -> Optional[bytes]:
     """
     if data.get("event") == "audio":
         return data.get("audio")
-    elif data.get("event") == "finish" and data.get("reason") == "error":
+    if data.get("event") == "finish" and data.get("reason") == "error":
         raise WebSocketError("WebSocket stream ended with error")
     return None  # Ignore unknown events
 

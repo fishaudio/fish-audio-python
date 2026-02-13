@@ -4,8 +4,8 @@ from typing import Optional
 
 import ormsgpack
 
-from ..core import OMIT, AsyncClientWrapper, ClientWrapper, RequestOptions
-from ..types import ASRResponse
+from fishaudio.core import OMIT, AsyncClientWrapper, ClientWrapper, RequestOptions
+from fishaudio.types import ASRResponse
 
 
 class ASRClient:

@@ -3,16 +3,16 @@
 from decimal import Decimal
 
 from fishaudio.types import (
-    Voice,
-    PaginatedResponse,
     ASRResponse,
     ASRSegment,
     Credits,
     Package,
-    ReferenceAudio,
+    PaginatedResponse,
     Prosody,
+    ReferenceAudio,
     TTSConfig,
     TTSRequest,
+    Voice,
 )
 
 

@@ -1,9 +1,10 @@
 """Voice management namespace client."""
 
-from typing import List, Optional, Union
+import builtins
+from typing import Optional, Union
 
-from ..core import OMIT, AsyncClientWrapper, ClientWrapper, RequestOptions
-from ..types import PaginatedResponse, Visibility, Voice
+from fishaudio.core import OMIT, AsyncClientWrapper, ClientWrapper, RequestOptions
+from fishaudio.types import PaginatedResponse, Visibility, Voice
 
 
 def _filter_none(d: dict) -> dict:
@@ -23,11 +24,11 @@ class VoicesClient:
         page_size: int = 10,
         page_number: int = 1,
         title: Optional[str] = OMIT,
-        tags: Optional[Union[List[str], str]] = OMIT,
+        tags: Optional[Union[list[str], str]] = OMIT,
         self_only: bool = False,
         author_id: Optional[str] = OMIT,
-        language: Optional[Union[List[str], str]] = OMIT,
-        title_language: Optional[Union[List[str], str]] = OMIT,
+        language: Optional[Union[list[str], str]] = OMIT,
+        title_language: Optional[Union[list[str], str]] = OMIT,
         sort_by: str = "task_count",
         request_options: Optional[RequestOptions] = None,
     ) -> PaginatedResponse[Voice]:
@@ -123,10 +124,10 @@ class VoicesClient:
         self,
         *,
         title: str,
-        voices: List[bytes],
+        voices: builtins.list[bytes],
         description: Optional[str] = OMIT,
-        texts: Optional[List[str]] = OMIT,
-        tags: Optional[List[str]] = OMIT,
+        texts: Optional[builtins.list[str]] = OMIT,
+        tags: Optional[builtins.list[str]] = OMIT,
         cover_image: Optional[bytes] = OMIT,
         visibility: Visibility = "private",
         train_mode: str = "fast",
@@ -203,7 +204,7 @@ class VoicesClient:
         description: Optional[str] = OMIT,
         cover_image: Optional[bytes] = OMIT,
         visibility: Optional[Visibility] = OMIT,
-        tags: Optional[List[str]] = OMIT,
+        tags: Optional[builtins.list[str]] = OMIT,
         request_options: Optional[RequestOptions] = None,
     ) -> None:
         """
@@ -290,11 +291,11 @@ class AsyncVoicesClient:
         page_size: int = 10,
         page_number: int = 1,
         title: Optional[str] = OMIT,
-        tags: Optional[Union[List[str], str]] = OMIT,
+        tags: Optional[Union[list[str], str]] = OMIT,
         self_only: bool = False,
         author_id: Optional[str] = OMIT,
-        language: Optional[Union[List[str], str]] = OMIT,
-        title_language: Optional[Union[List[str], str]] = OMIT,
+        language: Optional[Union[list[str], str]] = OMIT,
+        title_language: Optional[Union[list[str], str]] = OMIT,
         sort_by: str = "task_count",
         request_options: Optional[RequestOptions] = None,
     ) -> PaginatedResponse[Voice]:
@@ -340,10 +341,10 @@ class AsyncVoicesClient:
         self,
         *,
         title: str,
-        voices: List[bytes],
+        voices: builtins.list[bytes],
         description: Optional[str] = OMIT,
-        texts: Optional[List[str]] = OMIT,
-        tags: Optional[List[str]] = OMIT,
+        texts: Optional[builtins.list[str]] = OMIT,
+        tags: Optional[builtins.list[str]] = OMIT,
         cover_image: Optional[bytes] = OMIT,
         visibility: Visibility = "private",
         train_mode: str = "fast",
@@ -386,7 +387,7 @@ class AsyncVoicesClient:
         description: Optional[str] = OMIT,
         cover_image: Optional[bytes] = OMIT,
         visibility: Optional[Visibility] = OMIT,
-        tags: Optional[List[str]] = OMIT,
+        tags: Optional[builtins.list[str]] = OMIT,
         request_options: Optional[RequestOptions] = None,
     ) -> None:
         """Update voice metadata (async). See sync version for details."""

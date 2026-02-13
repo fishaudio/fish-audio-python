@@ -19,6 +19,7 @@ Expected Output:
 """
 
 import os
+
 from fishaudio import FishAudio
 from fishaudio.utils import save
 

@@ -1,6 +1,6 @@
 """Audio stream wrappers with collection utilities."""
 
-from typing import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator
 
 
 class AudioStream:

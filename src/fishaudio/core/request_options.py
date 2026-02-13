@@ -1,6 +1,6 @@
 """Request-level options for API calls."""
 
-from typing import Dict, Optional
+from typing import Optional
 
 import httpx
 
@@ -21,8 +21,8 @@ class RequestOptions:
         *,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
-        additional_headers: Optional[Dict[str, str]] = None,
-        additional_query_params: Optional[Dict[str, str]] = None,
+        additional_headers: Optional[dict[str, str]] = None,
+        additional_query_params: Optional[dict[str, str]] = None,
     ):
         self.timeout = timeout
         self.max_retries = max_retries
