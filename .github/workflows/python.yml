@@ -16,10 +16,10 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Check formatting
-        run: uv run ruff format --check .
+        run: uv run poe format
 
       - name: Lint code
-        run: uv run ruff check .
+        run: uv run poe lint
 
   type-check:
     name: Type Check
@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: uv sync
       - name: Run ty
-        run: uv run ty check
+        run: uv run poe typecheck
 
   test:
     name: Test Python ${{ matrix.python-version }}
@@ -50,7 +50,7 @@ jobs:
       - name: Install dependencies
         run: uv sync
       - name: Run tests with coverage
-        run: uv run pytest tests/unit/ -v --cov=src/fishaudio --cov-report=xml --cov-report=term
+        run: uv run poe test
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         if: matrix.python-version == '3'
@@ -74,7 +74,7 @@ jobs:
         run: uv sync
 
       - name: Run integration tests
-        run: uv run pytest tests/integration/ -v
+        run: uv run poe test-integration
         env:
           FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
 
@@ -94,7 +94,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
       - name: Build package
-        run: uv build
+        run: uv run poe build
       - name: Check package
         run: uv run python -c "import fishaudio; print(f'fishaudio v{fishaudio.__version__}')"
       - name: Upload build artifacts

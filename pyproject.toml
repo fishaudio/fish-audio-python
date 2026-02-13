@@ -57,6 +57,7 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = [
     "fish-audio-sdk[utils]",
+    "poethepoet>=0.32.0",
     "pydoc-markdown>=4.8.2",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.24.0",
@@ -111,6 +112,25 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
+
+[tool.poe.tasks]
+lint = "ruff check ."
+format = "ruff format --check ."
+typecheck = "ty check"
+check = ["lint", "format", "typecheck"]
+
+lint-fix = "ruff check --fix ."
+format-fix = "ruff format ."
+fix = ["lint-fix", "format-fix"]
+
+test = "pytest tests/unit/ -v --cov=src/fishaudio --cov-report=xml --cov-report=term"
+test-integration = "pytest tests/integration/ -v"
+
+docs = "pydoc-markdown"
+
+[tool.poe.tasks.build]
+cmd = "uv build"
+executor = {type = "simple"}
 
 [tool.uv.sources]
 fish-audio-sdk = { workspace = true }
