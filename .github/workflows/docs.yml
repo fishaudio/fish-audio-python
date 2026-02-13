@@ -28,7 +28,7 @@ jobs:
 
       - name: Generate API documentation
         working-directory: sdk
-        run: uv run pydoc-markdown
+        run: uv run poe docs
 
       - name: Checkout docs
         uses: actions/checkout@v6
