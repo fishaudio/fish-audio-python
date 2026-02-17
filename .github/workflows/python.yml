@@ -30,8 +30,6 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: "3"
-      - name: Install dependencies
-        run: uv sync
       - name: Run ty
         run: uv run poe typecheck
 
@@ -47,8 +45,6 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: uv sync
       - name: Run tests with coverage
         run: uv run poe test
       - name: Upload coverage to Codecov
@@ -69,9 +65,6 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.9"
-
-      - name: Install dependencies
-        run: uv sync
 
       - name: Run integration tests
         run: uv run poe test-integration
