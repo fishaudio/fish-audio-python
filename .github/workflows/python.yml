@@ -72,7 +72,7 @@ jobs:
           FISH_API_KEY: ${{ secrets.FISH_API_KEY }}
 
       - name: Upload Test Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-audio-output
@@ -91,7 +91,7 @@ jobs:
       - name: Check package
         run: uv run python -c "import fishaudio; print(f'fishaudio v{fishaudio.__version__}')"
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
