@@ -84,6 +84,9 @@ pages = [
     {title = "Exceptions", name="fishaudio/exceptions", contents = ["fishaudio.exceptions.*"] },
 ]
 
+[tool.ty.src]
+exclude = ["tests/", "examples/"]
+
 [tool.ruff.lint]
 extend-select = [
     "F",        # Pyflakes rules
