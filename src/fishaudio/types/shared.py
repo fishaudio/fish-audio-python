@@ -1,5 +1,6 @@
 """Shared types used across the SDK."""
 
+import warnings
 from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel
@@ -22,6 +23,19 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 # Model types
 Model = Literal["speech-1.5", "speech-1.6", "s1", "s2-pro"]
+
+# Deprecated models
+DEPRECATED_MODELS = {"speech-1.5", "speech-1.6"}
+
+
+def warn_if_deprecated_model(model: str) -> None:
+    """Emit a deprecation warning if a legacy model is used."""
+    if model in DEPRECATED_MODELS:
+        warnings.warn(
+            f"Model '{model}' is deprecated. Use 's1' or 's2-pro' instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
 # Audio format types
 AudioFormat = Literal["wav", "pcm", "mp3", "opus"]

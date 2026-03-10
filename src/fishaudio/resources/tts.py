@@ -28,6 +28,7 @@ from fishaudio.types import (
     TTSConfig,
     TTSRequest,
 )
+from fishaudio.types.shared import warn_if_deprecated_model
 
 from .realtime import aiter_websocket_audio, iter_websocket_audio
 
@@ -115,6 +116,8 @@ class TTSClient:
             audio = client.tts.stream(text="Hello world").collect()
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build request payload from config
         request = _config_to_tts_request(config, text)
 
@@ -203,6 +206,8 @@ class TTSClient:
             save(audio, "output.mp3")
             ```
         """
+        warn_if_deprecated_model(model)
+
         return self.stream(
             text=text,
             reference_id=reference_id,
@@ -310,6 +315,8 @@ class TTSClient:
                     f.write(audio_chunk)
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
 
@@ -416,6 +423,8 @@ class AsyncTTSClient:
             audio = await stream.collect()
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build request payload from config
         request = _config_to_tts_request(config, text)
 
@@ -504,6 +513,8 @@ class AsyncTTSClient:
             save(audio, "output.mp3")
             ```
         """
+        warn_if_deprecated_model(model)
+
         stream = await self.stream(
             text=text,
             reference_id=reference_id,
@@ -610,6 +621,8 @@ class AsyncTTSClient:
                     await f.write(audio_chunk)
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
 
