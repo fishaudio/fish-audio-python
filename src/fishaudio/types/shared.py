@@ -21,7 +21,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 
 # Model types
-Model = Literal["speech-1.5", "speech-1.6", "s1"]
+Model = Literal["speech-1.5", "speech-1.6", "s1", "s2-pro"]
 
 # Audio format types
 AudioFormat = Literal["wav", "pcm", "mp3", "opus"]
