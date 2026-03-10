@@ -177,9 +177,7 @@ class TestAsyncASRClient:
         mock_response.json.return_value = sample_asr_response
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
-        await async_asr_client.transcribe(
-            audio=b"fake_audio", include_timestamps=False
-        )
+        await async_asr_client.transcribe(audio=b"fake_audio", include_timestamps=False)
 
         call_args = async_mock_client_wrapper.request.call_args
         payload = ormsgpack.unpackb(call_args[1]["content"])
