@@ -45,6 +45,7 @@ class TestTTSIntegration:
         # Write to output directory
         save_audio(audio, "test_prosody.mp3")
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_tts_with_different_models(self, client, save_audio):
         """Test TTS with different models."""
         models = get_args(Model)

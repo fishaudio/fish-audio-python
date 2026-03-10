@@ -6,7 +6,7 @@ from typing import Annotated, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field
 
-Backends = Literal["speech-1.5", "speech-1.6", "agent-x0", "s1", "s1-mini"]
+Backends = Literal["speech-1.5", "speech-1.6", "agent-x0", "s1", "s1-mini", "s2-pro"]
 
 Item = TypeVar("Item")
 
