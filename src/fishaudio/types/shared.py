@@ -37,6 +37,7 @@ def warn_if_deprecated_model(model: str) -> None:
             stacklevel=3,
         )
 
+
 # Audio format types
 AudioFormat = Literal["wav", "pcm", "mp3", "opus"]
 
