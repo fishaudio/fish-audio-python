@@ -206,8 +206,6 @@ class TTSClient:
             save(audio, "output.mp3")
             ```
         """
-        warn_if_deprecated_model(model)
-
         return self.stream(
             text=text,
             reference_id=reference_id,
@@ -513,8 +511,6 @@ class AsyncTTSClient:
             save(audio, "output.mp3")
             ```
         """
-        warn_if_deprecated_model(model)
-
         stream = await self.stream(
             text=text,
             reference_id=reference_id,
