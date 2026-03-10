@@ -81,7 +81,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AudioStream:
         """
@@ -163,7 +163,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -225,7 +225,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         max_workers: int = 10,
         ws_options: Optional[WebSocketOptions] = None,
     ) -> Iterator[bytes]:
@@ -381,7 +381,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AsyncAudioStream:
         """
@@ -464,7 +464,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -527,7 +527,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         ws_options: Optional[WebSocketOptions] = None,
     ):
         """

@@ -63,7 +63,7 @@ class TestTTSClient:
 
         # Check headers
         assert call_args[1]["headers"]["Content-Type"] == "application/msgpack"
-        assert call_args[1]["headers"]["model"] == "s1"  # default model
+        assert call_args[1]["headers"]["model"] == "s2-pro"  # default model
 
         # Check payload was msgpack encoded
         assert "content" in call_args[1]
