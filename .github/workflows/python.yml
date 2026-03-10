@@ -30,6 +30,8 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: "3"
+      - name: Install all dependencies
+        run: uv sync --all-extras
       - name: Run ty
         run: uv run poe typecheck
 

@@ -51,11 +51,8 @@ class ASRClient:
         payload = {
             "audio": audio,
             "ignore_timestamps": not include_timestamps,
+            **({"language": language} if language is not OMIT else {}),
         }
-
-        # Add optional fields
-        if language is not OMIT:
-            payload["language"] = language
 
         # Make request
         response = self._client.request(
@@ -113,11 +110,8 @@ class AsyncASRClient:
         payload = {
             "audio": audio,
             "ignore_timestamps": not include_timestamps,
+            **({"language": language} if language is not OMIT else {}),
         }
-
-        # Add optional fields
-        if language is not OMIT:
-            payload["language"] = language
 
         # Make request
         response = await self._client.request(
