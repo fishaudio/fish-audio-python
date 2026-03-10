@@ -1,8 +1,12 @@
 """Integration tests for ASR functionality."""
 
+from pathlib import Path
+
 import pytest
 
 from fishaudio.types import ASRResponse, TTSConfig
+
+SAMPLES_DIR = Path(__file__).resolve().parents[2] / "samples"
 
 
 class TestASRIntegration:
@@ -43,6 +47,61 @@ class TestASRIntegration:
         assert isinstance(result, ASRResponse)
         assert result.text
         # Segments might still be present but potentially empty or without timing
+
+
+class TestASRFromFileIntegration:
+    """Test ASR using a sample audio file with known content."""
+
+    @pytest.fixture
+    def jfk_audio(self):
+        """Load the JFK sample audio file."""
+        return (SAMPLES_DIR / "jfk.wav").read_bytes()
+
+    def test_asr_from_file(self, client, jfk_audio):
+        """Test transcription of a known audio file."""
+        result = client.asr.transcribe(audio=jfk_audio, language="en")
+
+        assert isinstance(result, ASRResponse)
+        assert result.duration > 0
+        # JFK's famous quote
+        text = result.text.lower()
+        assert "ask not what your country can do for you" in text
+
+    def test_asr_from_file_with_timestamps(self, client, jfk_audio):
+        """Test transcription with timestamps from a known audio file."""
+        result = client.asr.transcribe(audio=jfk_audio, language="en")
+
+        assert len(result.segments) > 0
+        for segment in result.segments:
+            assert segment.text
+            assert segment.start >= 0
+            assert segment.end > segment.start
+
+    def test_asr_from_file_without_timestamps(self, client, jfk_audio):
+        """Test transcription without timestamps from a known audio file."""
+        result = client.asr.transcribe(audio=jfk_audio, include_timestamps=False)
+
+        assert isinstance(result, ASRResponse)
+        assert result.text
+
+
+class TestAsyncASRFromFileIntegration:
+    """Test async ASR using a sample audio file."""
+
+    @pytest.fixture
+    def jfk_audio(self):
+        """Load the JFK sample audio file."""
+        return (SAMPLES_DIR / "jfk.wav").read_bytes()
+
+    @pytest.mark.asyncio
+    async def test_async_asr_from_file(self, async_client, jfk_audio):
+        """Test async transcription of a known audio file."""
+        result = await async_client.asr.transcribe(audio=jfk_audio, language="en")
+
+        assert isinstance(result, ASRResponse)
+        assert result.text
+        assert result.duration > 0
+        assert "ask not what your country can do for you" in result.text.lower()
 
 
 class TestAsyncASRIntegration:

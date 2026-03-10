@@ -201,6 +201,21 @@ class TestTTSClient:
         call_args = mock_client_wrapper.request.call_args
         assert call_args[1]["headers"]["model"] == "s1"
 
+    def test_convert_unknown_model_passed_through_to_header(
+        self, tts_client, mock_client_wrapper
+    ):
+        """Test that an unknown model name is passed through to the HTTP header as-is."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        # Pass a model name that doesn't exist in the Model Literal type
+        tts_client.convert(text="Hello", model="speech-99-nonexistent")
+
+        # Verify the unknown model name still ends up in the request header
+        call_args = mock_client_wrapper.request.call_args
+        assert call_args[1]["headers"]["model"] == "speech-99-nonexistent"
+
     def test_convert_with_prosody(self, tts_client, mock_client_wrapper):
         """Test TTS with prosody settings."""
         mock_response = Mock()
