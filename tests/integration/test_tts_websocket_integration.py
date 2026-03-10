@@ -6,7 +6,7 @@ import pytest
 
 from fishaudio import WebSocketOptions
 from fishaudio.types import FlushEvent, Prosody, TextEvent, TTSConfig
-from fishaudio.types.shared import Model
+from fishaudio.types.shared import DEPRECATED_MODELS, Model
 
 from .conftest import TEST_REFERENCE_ID
 
@@ -44,7 +44,7 @@ class TestTTSWebSocketIntegration:
                     reason="WebSocket unreliable for legacy models"
                 ),
             )
-            if not m.startswith("s1")
+            if m in DEPRECATED_MODELS
             else m
             for m in get_args(Model)
         ],
@@ -233,7 +233,7 @@ class TestAsyncTTSWebSocketIntegration:
                     reason="WebSocket unreliable for legacy models"
                 ),
             )
-            if not m.startswith("s1")
+            if m in DEPRECATED_MODELS
             else m
             for m in get_args(Model)
         ],
