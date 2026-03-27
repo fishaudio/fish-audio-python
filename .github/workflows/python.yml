@@ -50,7 +50,7 @@ jobs:
       - name: Run tests with coverage
         run: uv run poe test
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: matrix.python-version == '3'
         with:
           files: ./coverage.xml
