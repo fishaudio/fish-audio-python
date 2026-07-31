@@ -1,12 +1,17 @@
 """Tests for utility functions."""
 
-import subprocess
+import importlib
 from unittest.mock import Mock, patch
 
 import pytest
 
 from fishaudio.exceptions import DependencyError
 from fishaudio.utils import play, save, stream
+
+# fishaudio.utils re-exports the functions, which shadows the module names, so
+# reach the modules explicitly to reach their private helpers.
+play_module = importlib.import_module("fishaudio.utils.play")
+stream_module = importlib.import_module("fishaudio.utils.stream")
 
 
 class TestSave:
@@ -35,26 +40,24 @@ class TestSave:
 class TestPlay:
     """Test play() function."""
 
-    def test_play_with_ffmpeg(self):
+    @patch("subprocess.run")
+    @patch("shutil.which", return_value="/usr/bin/ffplay")
+    def test_play_with_ffmpeg(self, _mock_which, mock_run):
         """Test playing audio with ffplay."""
-        # Mock subprocess.run to simulate which and ffplay succeeding
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock(returncode=0)
+        mock_run.return_value = Mock(returncode=0)
 
-            audio = b"fake audio"
-            play(audio, use_ffmpeg=True)
+        play(b"fake audio", use_ffmpeg=True)
 
-            # Should call both which (to check) and ffplay
-            assert mock_run.call_count >= 1
-            # At least one call should involve ffplay
-            calls_str = str(mock_run.call_args_list)
-            assert "ffplay" in calls_str or "which" in calls_str
+        mock_run.assert_called_once_with(
+            ["ffplay", "-autoexit", "-", "-nodisp"],
+            input=b"fake audio",
+            capture_output=True,
+            check=True,
+        )
 
     def test_play_ffmpeg_not_installed(self):
         """Test error when ffplay not installed."""
-        with patch(
-            "subprocess.run", side_effect=[subprocess.CalledProcessError(1, "which")]
-        ):
+        with patch("shutil.which", return_value=None):
             with pytest.raises(DependencyError) as exc_info:
                 play(b"audio", use_ffmpeg=True)
 
@@ -108,12 +111,9 @@ class TestStream:
     """Test stream() function."""
 
     @patch("subprocess.Popen")
-    @patch("subprocess.run")
-    def test_stream_audio(self, mock_run, mock_popen):
+    @patch("shutil.which", return_value="/usr/bin/mpv")
+    def test_stream_audio(self, mock_which, mock_popen):
         """Test streaming audio with mpv."""
-        # Mock which command to succeed
-        mock_run.return_value = Mock(returncode=0)
-
         # Mock mpv process
         mock_process = Mock()
         mock_process.stdin = Mock()
@@ -140,10 +140,51 @@ class TestStream:
 
     def test_stream_mpv_not_installed(self):
         """Test error when mpv not installed."""
-        with patch(
-            "subprocess.run", side_effect=[subprocess.CalledProcessError(1, "which")]
-        ):
+        with patch("shutil.which", return_value=None):
             with pytest.raises(DependencyError) as exc_info:
                 stream(iter([b"audio"]))
 
             assert "mpv" in str(exc_info.value)
+
+
+class TestIsInstalled:
+    """Test the PATH lookup behind play() and stream()."""
+
+    @pytest.mark.parametrize("module", [play_module, stream_module])
+    def test_missing_command_returns_false(self, module):
+        """A missing binary is reported as absent, not raised."""
+        assert module._is_installed("fishaudio-definitely-not-a-real-binary") is False
+
+    @pytest.mark.parametrize("module", [play_module, stream_module])
+    @patch("subprocess.run", side_effect=AssertionError("must not shell out"))
+    @patch("shutil.which", return_value=None)
+    def test_uses_shutil_not_a_which_subprocess(self, mock_which, _mock_run, module):
+        """The lookup must not shell out.
+
+        Shelling out to ``which`` raises FileNotFoundError on Windows, where no
+        such binary exists. That escapes the handler, so play() and stream()
+        died with WinError 2 instead of raising DependencyError, on the very
+        platform whose install instructions those errors document.
+        """
+        assert module._is_installed("mpv") is False
+        mock_which.assert_called_once_with("mpv")
+
+    @pytest.mark.parametrize(
+        ("module", "command"), [(play_module, "ffplay"), (stream_module, "mpv")]
+    )
+    @patch(
+        "subprocess.run",
+        side_effect=FileNotFoundError(2, "The system cannot find the file specified"),
+    )
+    @patch("shutil.which", return_value=None)
+    def test_windows_without_which_still_raises_dependency_error(
+        self, _mock_which, _mock_run, module, command
+    ):
+        """Simulate Windows: no `which` binary on PATH, and the tool absent."""
+        with pytest.raises(DependencyError) as exc_info:
+            if module is play_module:
+                play(b"audio", use_ffmpeg=True)
+            else:
+                stream(iter([b"audio"]))
+
+        assert command in str(exc_info.value)
