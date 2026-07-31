@@ -48,9 +48,12 @@ class TestPlay:
 
         play(b"fake audio", use_ffmpeg=True)
 
-        # Should invoke ffplay itself
-        assert mock_run.call_count >= 1
-        assert "ffplay" in str(mock_run.call_args_list)
+        mock_run.assert_called_once_with(
+            ["ffplay", "-autoexit", "-", "-nodisp"],
+            input=b"fake audio",
+            capture_output=True,
+            check=True,
+        )
 
     def test_play_ffmpeg_not_installed(self):
         """Test error when ffplay not installed."""
