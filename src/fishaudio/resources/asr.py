@@ -38,12 +38,19 @@ class ASRClient:
 
         Example:
             ```python
+            from fishaudio.core import RequestOptions
+
             client = FishAudio(api_key="...")
 
             with open("audio.mp3", "rb") as f:
                 audio_bytes = f.read()
 
-            result = client.asr.transcribe(audio=audio_bytes, language="en")
+            result = client.asr.transcribe(
+                audio=audio_bytes,
+                request_options=RequestOptions(
+                    additional_headers={"model": "transcribe-1-pro"}
+                ),
+            )
             print(result.text)
             for segment in result.segments:
                 print(f"{segment.start}-{segment.end}: {segment.text}")
@@ -99,12 +106,19 @@ class AsyncASRClient:
 
         Example:
             ```python
+            from fishaudio.core import RequestOptions
+
             client = AsyncFishAudio(api_key="...")
 
             async with aiofiles.open("audio.mp3", "rb") as f:
                 audio_bytes = await f.read()
 
-            result = await client.asr.transcribe(audio=audio_bytes, language="en")
+            result = await client.asr.transcribe(
+                audio=audio_bytes,
+                request_options=RequestOptions(
+                    additional_headers={"model": "transcribe-1-pro"}
+                ),
+            )
             print(result.text)
             for segment in result.segments:
                 print(f"{segment.start}-{segment.end}: {segment.text}")
