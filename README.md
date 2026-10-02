@@ -147,15 +147,27 @@ audio = client.tts.stream(text="Hello!").collect()
 ### Speech-to-Text
 
 ```python
-# Transcribe audio
-with open("audio.wav", "rb") as f:
-    result = client.asr.transcribe(audio=f.read(), language="en")
+from fishaudio.core import RequestOptions
+
+# transcribe-1-pro is the recommended model. Select it with the model header;
+# without it, the request runs on transcribe-1.
+pro = RequestOptions(additional_headers={"model": "transcribe-1-pro"})
+
+with open("meeting.wav", "rb") as f:
+    result = client.asr.transcribe(audio=f.read(), request_options=pro)
 
 print(result.text)
 
-# Access timestamped segments
+# Word-level timestamps
 for segment in result.segments:
     print(f"[{segment.start:.2f}s - {segment.end:.2f}s] {segment.text}")
+
+# Speaker turns (transcribe-1-pro, returned with timestamps)
+for turn in result.speaker_turns or []:
+    print(f"[{turn.start:.2f}s - {turn.end:.2f}s] {turn.speaker}: {turn.text}")
+
+# Language of the transcript, when the API returns it
+print(result.language_code)  # e.g. "en"
 ```
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/speech-to-text)
