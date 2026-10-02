@@ -168,6 +168,25 @@ print(result.text)
 # Access timestamped segments
 for segment in result.segments:
     print(f"[{segment.start:.2f}s - {segment.end:.2f}s] {segment.text}")
+
+# Language of the transcript, when the API returns it
+print(result.language_code)  # e.g. "en"
+```
+
+**Speaker turns:**
+
+```python
+from fishaudio.core import RequestOptions
+
+# transcribe-1-pro returns speaker turns along with timestamps
+with open("meeting.wav", "rb") as f:
+    result = client.asr.transcribe(
+        audio=f.read(),
+        request_options=RequestOptions(additional_headers={"model": "transcribe-1-pro"}),
+    )
+
+for turn in result.speaker_turns or []:
+    print(f"[{turn.start:.2f}s - {turn.end:.2f}s] {turn.speaker}: {turn.text}")
 ```
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/speech-to-text)

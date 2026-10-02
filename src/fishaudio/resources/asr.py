@@ -29,10 +29,12 @@ class ASRClient:
             audio: Audio file bytes
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
+                (and speaker turns, on models that return them)
             request_options: Request-level overrides
 
         Returns:
-            ASRResponse with transcription text, duration, and segments
+            ASRResponse with transcription text, duration (in seconds), and segments,
+            plus language, request ID and speaker turns when the API returns them
 
         Example:
             ```python
@@ -88,10 +90,12 @@ class AsyncASRClient:
             audio: Audio file bytes
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
+                (and speaker turns, on models that return them)
             request_options: Request-level overrides
 
         Returns:
-            ASRResponse with transcription text, duration, and segments
+            ASRResponse with transcription text, duration (in seconds), and segments,
+            plus language, request ID and speaker turns when the API returns them
 
         Example:
             ```python
