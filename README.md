@@ -99,6 +99,12 @@ free_audio = client.tts.convert(
     text="Free speech",
     model="s2.1-pro-free",
 )
+
+# Drama 3: our most expressive model (uses API credit)
+drama_audio = client.tts.convert(
+    text="Expressive speech",
+    model="drama-3",
+)
 ```
 
 **With custom voice:**
