@@ -173,3 +173,11 @@ class TestVoiceVisibility:
         sample_voice_response["visibility"] = "unlist"
         voice = Voice.model_validate(sample_voice_response)
         assert voice.visibility == "unlist"
+
+
+def test_tts_request_sends_opus_bitrate_in_bps():
+    assert TTSRequest(text="hi", format="opus").model_dump()["opus_bitrate"] == 32000
+    assert TTSRequest(text="hi", opus_bitrate=64).model_dump()["opus_bitrate"] == 64000
+    assert (
+        TTSRequest(text="hi", opus_bitrate=-1000).model_dump()["opus_bitrate"] == -1000
+    )
