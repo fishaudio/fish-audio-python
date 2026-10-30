@@ -22,7 +22,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 
 # Model types
-Model = Literal["s1", "s2-pro", "s2.1-pro"]
+Model = Literal["s1", "s2-pro", "s2.1-pro", "s2.1-pro-free", "drama-3"]
 
 # Deprecated models
 DEPRECATED_MODELS = {"speech-1.5", "speech-1.6"}

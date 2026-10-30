@@ -33,7 +33,7 @@ pip install fish-audio-sdk[utils]
 
 ## Authentication
 
-Get your API key from [fish.audio/app/api-keys](https://fish.audio/app/api-keys):
+Get your API key from [fish.audio/app/api-keys](https://fish.audio/app/api-keys/?utm_source=github&utm_medium=sdk-readme&utm_content=python):
 
 ```bash
 export FISH_API_KEY=your_api_key_here
@@ -92,6 +92,18 @@ asyncio.run(main())
 production_audio = client.tts.convert(
     text="Production speech",
     model="s2.1-pro",
+)
+
+# Free to use, including on a new account with no API credit
+free_audio = client.tts.convert(
+    text="Free speech",
+    model="s2.1-pro-free",
+)
+
+# Drama 3: our most expressive model (uses API credit)
+drama_audio = client.tts.convert(
+    text="Expressive speech",
+    model="drama-3",
 )
 ```
 
