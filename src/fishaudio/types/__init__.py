@@ -1,7 +1,7 @@
 """Type definitions for the Fish Audio SDK."""
 
 from .account import Credits, Package
-from .asr import ASRResponse, ASRSegment
+from .asr import ASRResponse, ASRSegment, SpeakerTurn
 from .shared import (
     AudioFormat,
     LatencyMode,
@@ -30,6 +30,7 @@ __all__ = [
     # ASR types
     "ASRResponse",
     "ASRSegment",
+    "SpeakerTurn",
     # Shared types
     "AudioFormat",
     "LatencyMode",
