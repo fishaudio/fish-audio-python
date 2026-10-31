@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.3.0...fish-audio-sdk-v1.4.0) (2026-10-31)
+
+
+### Features
+
+* **types:** accept s2.1-pro-free and drama-3 in Model; README examples and UTM link (FISH-1664) ([#166](https://github.com/fishaudio/fish-audio-python/issues/166)) ([539b409](https://github.com/fishaudio/fish-audio-python/commit/539b409dadec7a77954b94ed2513ddf45b1d3579))
+
+
+### Bug Fixes
+
+* **asr:** keep language, request_id and speaker_turns in ASRResponse ([#165](https://github.com/fishaudio/fish-audio-python/issues/165)) ([49592bc](https://github.com/fishaudio/fish-audio-python/commit/49592bcb24982e5c91f7d1176e4c2ddfcb7c4007))
+* **tts:** support s2.1 model names ([#162](https://github.com/fishaudio/fish-audio-python/issues/162)) ([4481509](https://github.com/fishaudio/fish-audio-python/commit/448150989781e6f91c3ca9f6cc59711a87df8130))
+* **websocket:** drain httpx-ws reader thread before closing sync sessions ([#164](https://github.com/fishaudio/fish-audio-python/issues/164)) ([1418add](https://github.com/fishaudio/fish-audio-python/commit/1418addec092b2f43b37e6f255789967c02b9bd9))
+
 ## [1.3.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.2.0...fish-audio-sdk-v1.3.0) (2026-03-10)
 
 
