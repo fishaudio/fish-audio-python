@@ -14,6 +14,7 @@ from fishaudio.core import (
     RequestOptions,
     WebSocketOptions,
 )
+from fishaudio.core._ws_utils import drain_reader
 from fishaudio.core.iterators import AsyncAudioStream, AudioStream
 from fishaudio.types import (
     AudioFormat,
@@ -362,10 +363,15 @@ class TTSClient:
 
                 sender_future = executor.submit(sender)
 
-                # Process incoming audio messages
-                yield from iter_websocket_audio(ws)
+                try:
+                    # Process incoming audio messages
+                    yield from iter_websocket_audio(ws)
 
-                sender_future.result()
+                    sender_future.result()
+                finally:
+                    # Stop httpx-ws's reader thread before the socket is closed so it
+                    # cannot read from a reused fd belonging to the next connection.
+                    drain_reader(ws)
         finally:
             executor.shutdown(wait=False)
 
