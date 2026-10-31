@@ -168,6 +168,7 @@ pro = RequestOptions(additional_headers={"model": "transcribe-1-pro"})
 with open("meeting.wav", "rb") as f:
     result = client.asr.transcribe(audio=f.read(), request_options=pro)
 
+# On transcribe-1-pro, text keeps <|speaker:N|> markers; speaker_turns has clean text per speaker.
 print(result.text)
 
 # Word-level timestamps
