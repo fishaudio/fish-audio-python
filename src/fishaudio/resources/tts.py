@@ -140,20 +140,25 @@ class TTSClient:
 
         payload = request.model_dump(exclude_none=True)
 
-        # Make request with streaming
+        # Send the request and return once headers arrive; the body is read
+        # lazily so chunks reach the caller as the server produces them.
         response = self._client.request(
             "POST",
             "/v1/tts",
             headers={"Content-Type": "application/msgpack", "model": model},
             content=ormsgpack.packb(payload),
             request_options=request_options,
+            stream=True,
         )
 
         # Create generator and wrap with AudioStream
         def _stream():
-            for chunk in response.iter_bytes():
-                if chunk:
-                    yield chunk
+            try:
+                for chunk in response.iter_bytes():
+                    if chunk:
+                        yield chunk
+            finally:
+                response.close()
 
         return AudioStream(_stream())
 
@@ -450,20 +455,25 @@ class AsyncTTSClient:
 
         payload = request.model_dump(exclude_none=True)
 
-        # Make request with streaming
+        # Send the request and return once headers arrive; the body is read
+        # lazily so chunks reach the caller as the server produces them.
         response = await self._client.request(
             "POST",
             "/v1/tts",
             headers={"Content-Type": "application/msgpack", "model": model},
             content=ormsgpack.packb(payload),
             request_options=request_options,
+            stream=True,
         )
 
         # Create async generator and wrap with AsyncAudioStream
         async def _stream():
-            async for chunk in response.aiter_bytes():
-                if chunk:
-                    yield chunk
+            try:
+                async for chunk in response.aiter_bytes():
+                    if chunk:
+                        yield chunk
+            finally:
+                await response.aclose()
 
         return AsyncAudioStream(_stream())
 

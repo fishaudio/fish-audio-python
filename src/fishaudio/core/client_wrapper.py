@@ -122,6 +122,7 @@ class ClientWrapper(BaseClientWrapper):
         path: str,
         *,
         request_options: Optional[RequestOptions] = None,
+        stream: bool = False,
         **kwargs: Any,
     ) -> httpx.Response:
         """
@@ -131,6 +132,9 @@ class ClientWrapper(BaseClientWrapper):
             method: HTTP method (GET, POST, etc.)
             path: API endpoint path
             request_options: Optional request-level overrides
+            stream: If True, return as soon as the response headers arrive and
+                leave the body unread. The caller must consume it with
+                `iter_bytes()` and then call `close()` on the response.
             **kwargs: Additional arguments to pass to httpx.request
 
         Returns:
@@ -140,6 +144,20 @@ class ClientWrapper(BaseClientWrapper):
             APIError: On non-2xx responses
         """
         self._prepare_request_kwargs(request_options, kwargs)
+
+        if stream:
+            timeout = kwargs.pop("timeout", httpx.USE_CLIENT_DEFAULT)
+            http_request = self._client.build_request(
+                method, path, timeout=timeout, **kwargs
+            )
+            response = self._client.send(http_request, stream=True)
+            if not response.is_success:
+                try:
+                    response.read()
+                finally:
+                    response.close()
+                _raise_for_status(response)
+            return response
 
         # Make the request
         response = self._client.request(method, path, **kwargs)
@@ -194,6 +212,7 @@ class AsyncClientWrapper(BaseClientWrapper):
         path: str,
         *,
         request_options: Optional[RequestOptions] = None,
+        stream: bool = False,
         **kwargs: Any,
     ) -> httpx.Response:
         """
@@ -203,6 +222,9 @@ class AsyncClientWrapper(BaseClientWrapper):
             method: HTTP method (GET, POST, etc.)
             path: API endpoint path
             request_options: Optional request-level overrides
+            stream: If True, return as soon as the response headers arrive and
+                leave the body unread. The caller must consume it with
+                `aiter_bytes()` and then call `aclose()` on the response.
             **kwargs: Additional arguments to pass to httpx.request
 
         Returns:
@@ -212,6 +234,20 @@ class AsyncClientWrapper(BaseClientWrapper):
             APIError: On non-2xx responses
         """
         self._prepare_request_kwargs(request_options, kwargs)
+
+        if stream:
+            timeout = kwargs.pop("timeout", httpx.USE_CLIENT_DEFAULT)
+            http_request = self._client.build_request(
+                method, path, timeout=timeout, **kwargs
+            )
+            response = await self._client.send(http_request, stream=True)
+            if not response.is_success:
+                try:
+                    await response.aread()
+                finally:
+                    await response.aclose()
+                _raise_for_status(response)
+            return response
 
         # Make the request
         response = await self._client.request(method, path, **kwargs)

@@ -520,6 +520,7 @@ class TestAsyncTTSClient:
                 yield chunk
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         # Call stream and collect chunks
@@ -549,6 +550,7 @@ class TestAsyncTTSClient:
                 yield chunk
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         # Call convert
@@ -574,6 +576,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(reference_id="voice_123")
@@ -595,6 +598,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         await async_tts_client.convert(text="Hello", reference_id="voice_456")
@@ -615,6 +619,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(reference_id="voice_from_config")
@@ -638,6 +643,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         references = [
@@ -665,6 +671,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config_refs = [ReferenceAudio(audio=b"config_audio", text="Config")]
@@ -692,6 +699,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         prosody = Prosody(speed=2.0, volume=1.0)
@@ -716,6 +724,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         await async_tts_client.convert(text="Hello")
@@ -740,6 +749,7 @@ class TestAsyncTTSClient:
             yield  # Make it a generator
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         audio = await async_tts_client.convert(text="Hello")
@@ -757,6 +767,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         await async_tts_client.convert(text="Hello", format="wav")
@@ -777,6 +788,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         await async_tts_client.convert(text="Hello", latency="normal")
@@ -797,6 +809,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         await async_tts_client.convert(text="Hello", speed=1.5)
@@ -817,6 +830,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(format="wav")
@@ -838,6 +852,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         config = TTSConfig(prosody=Prosody(speed=2.0, volume=0.5))
@@ -860,6 +875,7 @@ class TestAsyncTTSClient:
             yield b"audio"
 
         mock_response.aiter_bytes = async_iter_bytes
+        mock_response.aclose = AsyncMock()
         async_mock_client_wrapper.request = AsyncMock(return_value=mock_response)
 
         await async_tts_client.convert(
