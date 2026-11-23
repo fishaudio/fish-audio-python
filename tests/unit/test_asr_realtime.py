@@ -12,6 +12,7 @@ import time
 
 import ormsgpack
 import pytest
+from httpx_ws import WebSocketNetworkError
 
 from fishaudio import (
     APIError,
@@ -24,6 +25,8 @@ from fishaudio import (
 from fishaudio.resources import asr_realtime
 from fishaudio.resources.asr import _realtime_config
 from fishaudio.resources.asr_realtime import (
+    ASRRealtimeStream,
+    AsyncASRRealtimeStream,
     decode_event,
     encode_config,
     encode_message,
@@ -578,6 +581,23 @@ class TestSyncSession:
             list(client.asr.stream_websocket(endless_audio()))
         server.stop()
 
+    def test_connection_lost_while_sending_config_raises_websocket_error(self):
+        """A network failure on the first frame is a WebSocketError, not httpx-ws's own."""
+
+        class LostSession:
+            def send_bytes(self, data):
+                raise WebSocketNetworkError
+
+        @contextlib.contextmanager
+        def connect():
+            yield LostSession()
+
+        stream = ASRRealtimeStream(connect, ASRRealtimeConfig(), endless_audio())
+        with pytest.raises(WebSocketError) as exc_info:
+            list(stream)
+        assert not isinstance(exc_info.value, ASRRealtimeError)
+        assert isinstance(exc_info.value.__cause__, WebSocketNetworkError)
+
     @pytest.mark.parametrize(
         ("status", "error_class"), [(401, AuthenticationError), (402, APIError)]
     )
@@ -873,6 +893,24 @@ class TestAsyncSession:
                     pass
             await astop(server)
 
+    async def test_connection_lost_while_sending_config_raises_websocket_error(self):
+        """A network failure on the first frame is a WebSocketError, not httpx-ws's own."""
+
+        class LostSession:
+            async def send_bytes(self, data):
+                raise WebSocketNetworkError
+
+        @contextlib.asynccontextmanager
+        async def connect():
+            yield LostSession()
+
+        stream = AsyncASRRealtimeStream(connect, ASRRealtimeConfig(), aendless_audio())
+        with pytest.raises(WebSocketError) as exc_info:
+            async for _ in stream:
+                pass
+        assert not isinstance(exc_info.value, ASRRealtimeError)
+        assert isinstance(exc_info.value.__cause__, WebSocketNetworkError)
+
     @pytest.mark.parametrize(
         ("status", "error_class"), [(401, AuthenticationError), (402, APIError)]
     )
@@ -938,6 +976,45 @@ class TestAsyncSession:
                 await stream.__anext__()
             assert closed.is_set()  # already closed when aclose() returns
             await astop(server)
+
+    async def test_aclose_from_another_task_wakes_a_waiting_consumer(self):
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.wait_gone()  # no more events: the consumer blocks in __anext__
+
+        async with aserving(script) as (server, client):
+            stream = client.asr.stream_websocket(aendless_audio())
+
+            async def consume():
+                return [event.type async for event in stream]
+
+            consumer = asyncio.create_task(consume())
+            await asyncio.sleep(0.3)  # session_started received, now waiting
+            await asyncio.wait_for(stream.aclose(), 2)
+
+            assert await asyncio.wait_for(consumer, 2) == ["session_started"]
+            await astop(server)
+
+    async def test_cancelled_audio_stream_ends_the_session_with_an_error(self):
+        async def audio():
+            yield CHUNK
+            cancelled = asyncio.get_running_loop().create_future()
+            cancelled.cancel()
+            await (
+                cancelled
+            )  # e.g. the capture task this iterator waits on was cancelled
+
+        async def consume(stream):
+            async for _ in stream:
+                pass
+
+        async with aserving(open_ended_script) as (server, client):
+            stream = client.asr.stream_websocket(audio())
+            with pytest.raises(WebSocketError, match="cancelled"):
+                await asyncio.wait_for(consume(stream), 3)
+            conn = await astop(server)
+        assert conn.close_code == 1000
 
     async def test_slow_consumer_gets_backpressure_instead_of_unbounded_buffering(
         self,

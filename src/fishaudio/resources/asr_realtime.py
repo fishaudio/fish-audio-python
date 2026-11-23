@@ -248,7 +248,10 @@ def _iter_session(
     try:
         with connect() as ws:
             try:
-                ws.send_bytes(config)
+                try:
+                    ws.send_bytes(config)
+                except HTTPXWSException as e:
+                    raise WebSocketError("WebSocket connection lost") from e
                 while True:
                     try:
                         message = ws.receive_bytes(
@@ -417,8 +420,13 @@ async def _asend_audio(
 
 
 def _failure(task: Optional[asyncio.Task[None]]) -> Optional[BaseException]:
-    if task is None or not task.done() or task.cancelled():
+    """Why the audio sender stopped early, if it did."""
+    if task is None or not task.done():
         return None
+    if task.cancelled():
+        # Not our doing (cleanup cancels it only after the receive loop has ended):
+        # the audio stream awaited something that was cancelled.
+        return WebSocketError("Audio stream was cancelled before the session ended")
     return task.exception()
 
 
@@ -450,7 +458,10 @@ async def _run_session(
     try:
         async with connect() as ws:
             try:
-                await ws.send_bytes(config)
+                try:
+                    await ws.send_bytes(config)
+                except HTTPXWSException as e:
+                    raise WebSocketError("WebSocket connection lost") from e
                 while True:
                     failure = _failure(sender)
                     try:
@@ -485,7 +496,8 @@ async def _run_session(
                 if sender is not None:
                     sender.cancel()
                     await asyncio.wait({sender})
-                    _failure(sender)  # mark a late exception as retrieved
+                    if not sender.cancelled():
+                        sender.exception()  # mark a late exception as retrieved
     except WebSocketUpgradeError as e:
         error = _upgrade_error(e.response)
         error.__cause__ = e
@@ -546,13 +558,41 @@ class AsyncASRRealtimeStream:
                     self._audio_stream,
                 )
             )
-        item = await self._events.get()
+        item = await self._next_item(self._events, self._task)
+        if item is None:  # closed by aclose() while waiting
+            self._finished = True
+            raise StopAsyncIteration
         if isinstance(item, _End):
             self._finished = True
             if item.error is not None:
                 raise item.error
             raise StopAsyncIteration
         return item
+
+    @staticmethod
+    async def _next_item(
+        events: asyncio.Queue[Union[ASRRealtimeEvent, _End]],
+        task: Optional[asyncio.Task[None]],
+    ) -> Union[ASRRealtimeEvent, _End, None]:
+        """The next queue item, or None once the session task is gone and the queue is empty.
+
+        A session that ends by itself always queues an ``_End`` first. One that is
+        cancelled (``aclose()`` from another task) queues nothing, so waiting on
+        the queue alone would block this consumer forever.
+        """
+        if not events.empty() or task is None:
+            return await events.get()
+        get = asyncio.ensure_future(events.get())
+        try:
+            await asyncio.wait({get, task}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            if not get.done():
+                get.cancel()
+        if get.done() and not get.cancelled():
+            return get.result()
+        with contextlib.suppress(asyncio.QueueEmpty):
+            return events.get_nowait()
+        return None
 
     async def __aenter__(self) -> AsyncASRRealtimeStream:
         return self
