@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/banner-dark.svg">
-  <img alt="Fish Audio Python SDK" src="https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/banner-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/banner-dark.svg" />
+  <img alt="Fish Audio Python SDK" src="https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/banner-light.svg" />
 </picture>
 
 # Fish Audio Python SDK
