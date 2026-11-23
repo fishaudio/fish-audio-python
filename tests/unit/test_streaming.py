@@ -72,16 +72,35 @@ class TestSyncStreaming:
         assert list(stream) == [b"chunk-2", b"chunk-3"]
         assert body.closed
 
-    def test_early_break_closes_response(self):
+    def test_with_block_closes_after_early_break(self):
+        body = _SyncBody(CHUNKS)
+        tts = _sync_tts(lambda request: httpx.Response(200, stream=body))
+
+        with tts.stream(text="Hello") as stream:
+            for _ in stream:
+                break
+            assert not body.closed
+
+        assert body.produced == 1
+        assert body.closed
+
+    def test_close_before_iteration_releases_response(self):
         body = _SyncBody(CHUNKS)
         tts = _sync_tts(lambda request: httpx.Response(200, stream=body))
 
         stream = tts.stream(text="Hello")
-        for _ in stream:
-            break
-        stream._iter.close()  # what garbage collection does to an abandoned generator
+        stream.close()
+        stream.close()  # idempotent
 
-        assert body.produced == 1
+        assert body.produced == 0
+        assert body.closed
+        assert list(stream) == []
+
+    def test_collect_closes_response(self):
+        body = _SyncBody(CHUNKS)
+        tts = _sync_tts(lambda request: httpx.Response(200, stream=body))
+
+        assert tts.stream(text="Hello").collect() == b"".join(CHUNKS)
         assert body.closed
 
     def test_convert_still_returns_full_audio(self):
@@ -132,16 +151,35 @@ class TestAsyncStreaming:
         assert rest == [b"chunk-2", b"chunk-3"]
         assert body.closed
 
-    async def test_early_break_closes_response(self):
+    async def test_async_with_closes_after_early_break(self):
+        body = _AsyncBody(CHUNKS)
+        tts = _async_tts(lambda request: httpx.Response(200, stream=body))
+
+        async with await tts.stream(text="Hello") as stream:
+            async for _ in stream:
+                break
+            assert not body.closed
+
+        assert body.produced == 1
+        assert body.closed
+
+    async def test_aclose_before_iteration_releases_response(self):
         body = _AsyncBody(CHUNKS)
         tts = _async_tts(lambda request: httpx.Response(200, stream=body))
 
         stream = await tts.stream(text="Hello")
-        async for _ in stream:
-            break
-        await stream._iter.aclose()
+        await stream.aclose()
+        await stream.aclose()  # idempotent
 
-        assert body.produced == 1
+        assert body.produced == 0
+        assert body.closed
+        assert [chunk async for chunk in stream] == []
+
+    async def test_collect_closes_response(self):
+        body = _AsyncBody(CHUNKS)
+        tts = _async_tts(lambda request: httpx.Response(200, stream=body))
+
+        assert await (await tts.stream(text="Hello")).collect() == b"".join(CHUNKS)
         assert body.closed
 
     async def test_convert_still_returns_full_audio(self):

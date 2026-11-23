@@ -160,7 +160,7 @@ class TTSClient:
             finally:
                 response.close()
 
-        return AudioStream(_stream())
+        return AudioStream(_stream(), on_close=response.close)
 
     def convert(
         self,
@@ -475,7 +475,7 @@ class AsyncTTSClient:
             finally:
                 await response.aclose()
 
-        return AsyncAudioStream(_stream())
+        return AsyncAudioStream(_stream(), on_close=response.aclose)
 
     async def convert(
         self,
