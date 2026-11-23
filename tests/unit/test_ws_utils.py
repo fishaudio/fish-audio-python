@@ -25,6 +25,7 @@ class TestDrainReader:
     def test_sends_close_frame_then_shuts_down_socket_and_joins_reader(self):
         sock = Mock()
         thread = Mock()
+        thread.is_alive.return_value = False  # the reader exits on the first join
         ws = _make_ws(sock, thread)
         parent = Mock()
         parent.attach_mock(ws.send, "send")
@@ -38,7 +39,7 @@ class TestDrainReader:
         assert isinstance(event, wsproto.events.CloseConnection)
         assert event.code == 1000
         sock.shutdown.assert_called_once_with(socket.SHUT_RDWR)
-        thread.join.assert_called_once_with(timeout=5)
+        thread.join.assert_called_once_with(timeout=0.02)
 
     def test_falls_back_to_response_network_stream(self):
         sock = Mock()
@@ -62,8 +63,9 @@ class TestDrainReader:
         sock = Mock()
         sock.shutdown.side_effect = OSError("already closed")
         thread = Mock()
+        thread.is_alive.return_value = False
         drain_reader(_make_ws(sock, thread))
-        thread.join.assert_called_once_with(timeout=5)
+        thread.join.assert_called_once_with(timeout=0.02)
 
     def test_tolerates_missing_socket_and_thread(self):
         ws = Mock()

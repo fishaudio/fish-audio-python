@@ -8,6 +8,7 @@ import inspect
 import logging
 import queue
 import threading
+import time
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -245,6 +246,8 @@ def _iter_session(
     protocol = _Protocol()
     failure: list[BaseException] = []
     sender: Optional[threading.Thread] = None
+    done: Optional[ASRSessionDoneEvent] = None
+    drain_until: Optional[float] = None
     try:
         with connect() as ws:
             try:
@@ -252,23 +255,36 @@ def _iter_session(
                     ws.send_bytes(config)
                 except HTTPXWSException as e:
                     raise WebSocketError("WebSocket connection lost") from e
-                while True:
+                while done is None:
+                    if failure and drain_until is None:
+                        # One deadline for the whole drain: events that keep
+                        # arriving must not postpone the audio stream's error.
+                        drain_until = time.monotonic() + _DRAIN_SECONDS
+                    if drain_until is not None and time.monotonic() >= drain_until:
+                        raise failure[0]
                     try:
                         message = ws.receive_bytes(
-                            timeout=_DRAIN_SECONDS if failure else _POLL_SECONDS
+                            timeout=_POLL_SECONDS
+                            if drain_until is None
+                            else max(drain_until - time.monotonic(), 0.001)
                         )
                     except (queue.Empty, TimeoutError):  # httpx-ws < 0.8 / >= 0.8
-                        if failure:
-                            raise failure[0] from None
                         continue
                     except WebSocketDisconnect as e:
                         protocol.on_close(e.code, e.reason)
+                        if (
+                            failure
+                        ):  # a normal close does not hide a failed audio stream
+                            raise failure[0] from None
                         return
                     except HTTPXWSException as e:
                         raise WebSocketError("WebSocket connection lost") from e
 
                     event = protocol.on_message(message)
                     if event is None:
+                        continue
+                    if isinstance(event, ASRSessionDoneEvent):
+                        done = event
                         continue
                     if isinstance(event, ASRSessionStartedEvent) and sender is None:
                         link.open(ws)
@@ -280,13 +296,15 @@ def _iter_session(
                         )
                         sender.start()
                     yield event
-                    if isinstance(event, ASRSessionDoneEvent):
-                        return
             finally:
                 link.close()
                 # Stop httpx-ws's reader thread before the socket is closed so it
                 # cannot read from a reused fd belonging to the next connection.
                 drain_reader(ws)
+        # The connection is closed before the last event is handed out, so a
+        # caller that stops at session_done does not leave it open.
+        if done is not None:
+            yield done
     except WebSocketUpgradeError as e:
         raise _upgrade_error(e.response) from e
 
@@ -462,18 +480,34 @@ async def _run_session(
                     await ws.send_bytes(config)
                 except HTTPXWSException as e:
                     raise WebSocketError("WebSocket connection lost") from e
+                drain_until: Optional[float] = None
                 while True:
                     failure = _failure(sender)
+                    if failure and drain_until is None:
+                        # One deadline for the whole drain: events that keep
+                        # arriving must not postpone the audio stream's error.
+                        drain_until = time.monotonic() + _DRAIN_SECONDS
+                    if (
+                        failure is not None
+                        and drain_until is not None
+                        and time.monotonic() >= drain_until
+                    ):
+                        raise failure
                     try:
                         message = await ws.receive_bytes(
-                            timeout=_DRAIN_SECONDS if failure else _POLL_SECONDS
+                            timeout=_POLL_SECONDS
+                            if drain_until is None
+                            else max(drain_until - time.monotonic(), 0.001)
                         )
                     except TimeoutError:
-                        if failure:
-                            raise failure from None
                         continue
                     except WebSocketDisconnect as e:
                         protocol.on_close(e.code, e.reason)
+                        failure = _failure(sender)
+                        if (
+                            failure
+                        ):  # a normal close does not hide a failed audio stream
+                            raise failure from None
                         break
                     except HTTPXWSException as e:
                         raise WebSocketError("WebSocket connection lost") from e
@@ -523,6 +557,11 @@ class AsyncASRRealtimeStream:
 
     The control methods send a message at the current position in the audio
     stream; they can be awaited once ``session_started`` has been received.
+
+    Keep reading: when you stop, the SDK buffers a few hundred events and then
+    stops reading from the connection, which also stops it answering keepalive
+    pings. A consumer that stays stalled past the keepalive timeout (20 s by
+    default, see ``ws_options``) while events keep arriving loses the connection.
     """
 
     def __init__(

@@ -82,8 +82,10 @@ class ASRClient:
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
                 (and speaker turns, on models that return them)
-            model: ASR model, e.g. "transcribe-1-pro" (recommended). If not provided,
-                the request runs on the API's default model, transcribe-1
+            model: ASR model, e.g. "transcribe-1-pro" (recommended). Sent as the
+                ``model`` header and takes precedence over one in request_options.
+                If not provided and request_options sets no ``model`` header, the
+                request runs on the API's default model, transcribe-1
             request_options: Request-level overrides
 
         Returns:
@@ -267,8 +269,10 @@ class AsyncASRClient:
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
                 (and speaker turns, on models that return them)
-            model: ASR model, e.g. "transcribe-1-pro" (recommended). If not provided,
-                the request runs on the API's default model, transcribe-1
+            model: ASR model, e.g. "transcribe-1-pro" (recommended). Sent as the
+                ``model`` header and takes precedence over one in request_options.
+                If not provided and request_options sets no ``model`` header, the
+                request runs on the API's default model, transcribe-1
             request_options: Request-level overrides
 
         Returns:

@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import socket
 import threading
+import time
 from collections import deque
 from typing import Any, Callable, Optional
 
@@ -105,12 +106,21 @@ class Connection:
         return messages
 
     def quiet_for(self, seconds: float) -> bool:
-        """True if the client sends nothing for the given time."""
-        self._sock.settimeout(seconds)
+        """True if the client sends no message for the whole of the given time.
+
+        Pings and partial frames do not end the wait early.
+        """
+        deadline = time.monotonic() + seconds
         try:
-            self._read()
-        except socket.timeout:
-            return not self._pending
+            while not self._pending:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self._sock.settimeout(remaining)
+                try:
+                    self._read()
+                except socket.timeout:
+                    break
         finally:
             self._sock.settimeout(5)
         return not self._pending

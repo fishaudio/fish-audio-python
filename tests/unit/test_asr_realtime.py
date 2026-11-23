@@ -581,6 +581,79 @@ class TestSyncSession:
             list(client.asr.stream_websocket(endless_audio()))
         server.stop()
 
+    def test_audio_failure_is_not_delayed_by_a_steady_stream_of_events(self):
+        def audio():
+            yield CHUNK
+            raise RuntimeError("microphone unplugged")
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.recv()  # the one audio chunk
+            with contextlib.suppress(OSError):  # the client leaves before the end
+                for seq in range(200):  # an event every 10 ms for 2 s
+                    conn.send({**DRAFT, "seq": seq})
+                    time.sleep(0.01)
+
+        with serving(script) as (server, client):
+            started = time.monotonic()
+            with pytest.raises(RuntimeError, match="microphone unplugged"):
+                list(client.asr.stream_websocket(audio()))
+            assert time.monotonic() - started < 1.0
+            server.stop()
+
+    def test_audio_failure_is_raised_when_the_server_closes_normally(self):
+        def audio():
+            yield CHUNK
+            raise RuntimeError("microphone unplugged")
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.recv()  # the one audio chunk
+            conn.close(1000, "bye")
+
+        with (
+            serving(script) as (server, client),
+            pytest.raises(RuntimeError, match="microphone unplugged"),
+        ):
+            list(client.asr.stream_websocket(audio()))
+        server.stop()
+
+    def test_connection_is_closed_once_session_done_is_returned(self):
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.recv_until("audio_done")
+            conn.send(SESSION_DONE)
+
+        with serving(script) as (server, client):
+            stream = client.asr.stream_websocket(iter([CHUNK]))
+            assert next(stream).type == "session_started"
+            assert next(stream).type == "session_done"
+            # No further next() or close(): the client must already be gone.
+            conn = server.stop()
+            assert list(stream) == []
+        assert conn.close_code == 1000
+
+    def test_close_does_not_hang_when_many_events_are_unread(self):
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            for seq in range(800):  # more than httpx-ws's receive queue holds
+                conn.send({**DRAFT, "seq": seq})
+
+        with serving(script) as (server, client):
+            stream = client.asr.stream_websocket(endless_audio())
+            assert next(stream).type == "session_started"
+            time.sleep(0.5)  # the consumer stops reading; the transport queue fills
+
+            closer = threading.Thread(target=stream.close, daemon=True)
+            closer.start()
+            closer.join(3)
+            assert not closer.is_alive(), "close() is stuck"
+            server.stop()
+
     def test_connection_lost_while_sending_config_raises_websocket_error(self):
         """A network failure on the first frame is a WebSocketError, not httpx-ws's own."""
 
@@ -975,6 +1048,45 @@ class TestAsyncSession:
             async with client.asr.stream_websocket(audio()) as stream:
                 await stream.__anext__()
             assert closed.is_set()  # already closed when aclose() returns
+            await astop(server)
+
+    async def test_audio_failure_is_not_delayed_by_a_steady_stream_of_events(self):
+        async def audio():
+            yield CHUNK
+            raise RuntimeError("microphone unplugged")
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.recv()
+            with contextlib.suppress(OSError):  # the client leaves before the end
+                for seq in range(200):
+                    conn.send({**DRAFT, "seq": seq})
+                    time.sleep(0.01)
+
+        async with aserving(script) as (server, client):
+            started = time.monotonic()
+            with pytest.raises(RuntimeError, match="microphone unplugged"):
+                async for _ in client.asr.stream_websocket(audio()):
+                    pass
+            assert time.monotonic() - started < 1.0
+            await astop(server)
+
+    async def test_audio_failure_is_raised_when_the_server_closes_normally(self):
+        async def audio():
+            yield CHUNK
+            raise RuntimeError("microphone unplugged")
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.recv()
+            conn.close(1000, "bye")
+
+        async with aserving(script) as (server, client):
+            with pytest.raises(RuntimeError, match="microphone unplugged"):
+                async for _ in client.asr.stream_websocket(audio()):
+                    pass
             await astop(server)
 
     async def test_aclose_from_another_task_wakes_a_waiting_consumer(self):

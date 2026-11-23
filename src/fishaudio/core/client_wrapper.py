@@ -84,7 +84,14 @@ class BaseClientWrapper:
         headers = self.get_headers()
         if request_options and request_options.additional_headers:
             headers.update(request_options.additional_headers)
-        kwargs["headers"] = {**headers, **kwargs.get("headers", {})}
+        # Headers set by the calling method win, whatever the case of the name:
+        # {"Model": ...} from request options must not travel next to {"model": ...}.
+        explicit = kwargs.get("headers", {})
+        explicit_names = {name.lower() for name in explicit}
+        kwargs["headers"] = {
+            **{k: v for k, v in headers.items() if k.lower() not in explicit_names},
+            **explicit,
+        }
 
         # Apply timeout override if provided
         if request_options and request_options.timeout is not None:

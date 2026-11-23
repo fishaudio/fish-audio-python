@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import queue
 import socket
+import time
 from typing import Any
 
 import wsproto.events
@@ -59,8 +61,18 @@ def drain_reader(ws: Any) -> None:
 
         thread = getattr(ws, "_background_receive_task", None)
         if thread is not None:
-            # 5 s is the worst case only when the reader is stuck; httpx-ws's own
-            # untimed join in __exit__ would hang afterwards anyway.
-            thread.join(timeout=5)
+            # The reader can also be blocked putting an event into httpx-ws's
+            # bounded queue (the consumer stopped reading). Nothing will read
+            # those events any more, so discard them until the thread exits;
+            # httpx-ws's own untimed join in __exit__ would hang otherwise.
+            events = getattr(ws, "_events", None)
+            deadline = time.monotonic() + 5
+            thread.join(timeout=0.02)
+            while thread.is_alive() is True and time.monotonic() < deadline:
+                if isinstance(events, queue.Queue):
+                    with contextlib.suppress(queue.Empty):
+                        while True:
+                            events.get_nowait()
+                thread.join(timeout=0.02)
     except Exception:
         logger.debug("drain_reader failed; falling back to plain close", exc_info=True)
