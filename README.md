@@ -180,6 +180,30 @@ print(result.language_code)  # e.g. "en"
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/speech-to-text)
 
+**Realtime (Preview):** stream live audio to `transcribe-stream-1` and get the transcript turn by turn. Send 16-bit mono PCM in 20–40 ms chunks as you capture it:
+
+```python
+import wave
+
+def audio_chunks():
+    with wave.open("speech.wav", "rb") as wav:  # 16-bit mono PCM, 16 kHz
+        while chunk := wav.readframes(640):  # 40 ms
+            yield chunk
+
+# diarize=False gives plain text; by default it starts with a speaker tag: "<|speaker:0|> Hello."
+for event in client.asr.stream_websocket(
+    audio_chunks(), sample_rate=16000, drafts=True, diarize=False
+):
+    if event.type == "draft":  # live text of the open turn, not final
+        print("...", event.text)
+    elif event.type == "committed":  # final transcript of the turn
+        print(event.text)
+```
+
+With `AsyncFishAudio`, pass an async iterator and use `async for`. The returned stream also sends control messages during the session, such as `stream.finalize()` for push-to-talk and `stream.agent_speaking(True)` for voice agents.
+
+[Learn more](https://docs.fish.audio/features/speech-to-text/realtime)
+
 ### Real-time Streaming
 
 Stream dynamically generated text for conversational AI and live applications:
@@ -253,7 +277,7 @@ audio = client.tts.convert(
 | Resource | Description | Key Methods |
 |----------|-------------|-------------|
 | `client.tts` | Text-to-speech | `convert()`, `stream()`, `stream_websocket()` |
-| `client.asr` | Speech recognition | `transcribe()` |
+| `client.asr` | Speech recognition | `transcribe()`, `stream_websocket()` |
 | `client.voices` | Voice management | `list()`, `get()`, `create()`, `update()`, `delete()` |
 | `client.account` | Account info | `get_credits()`, `get_package()` |
 
