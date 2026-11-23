@@ -1191,3 +1191,79 @@ class TestAsyncSession:
                 await asyncio.sleep(0.2)  # the session task blocks on the queue
                 break
             await astop(server)  # returns only once the client has gone
+
+    async def test_cancelled_read_does_not_lose_the_event_it_had_taken(self):
+        """A read cancelled after it took an event from the queue (for example by
+        asyncio.wait_for) must hand that event to the next read."""
+
+        async def read_cancelled_after(steps, marker):
+            read = asyncio.ensure_future(stream.__anext__())
+            await asyncio.sleep(0)  # the read is now waiting for an event
+            stream._events.put_nowait(marker)
+            for _ in range(steps):  # let the read get this far before cancelling
+                await asyncio.sleep(0)
+            read.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                return await read
+            return await asyncio.wait_for(stream.__anext__(), 1)
+
+        async with aserving(open_ended_script) as (server, client):
+            async with client.asr.stream_websocket(aendless_audio()) as stream:
+                assert (await stream.__anext__()).type == "session_started"
+                assert (await stream.__anext__()).type == "committed"
+
+                # Cancel at every point between "event queued" and "read returned".
+                received = []
+                for steps in range(8):
+                    marker = ASRDraftEvent(turn_index=0, text="marker", seq=steps)
+                    received.append(await read_cancelled_after(steps, marker))
+            await astop(server)
+        assert [event.seq for event in received] == list(range(8))
+
+    async def test_reading_with_timeouts_delivers_every_event_in_order(self):
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.recv_until("audio_done")
+            for seq in range(1, 61):
+                conn.send({**DRAFT, "seq": seq})
+                time.sleep(0.003)
+            conn.send({**SESSION_DONE, "seq": 61})
+            conn.close(1000, "done")
+
+        seqs = []
+        timeouts = 0
+        async with aserving(script) as (server, client):
+            stream = client.asr.stream_websocket(aiter_chunks(CHUNK))
+            while True:
+                try:
+                    event = await asyncio.wait_for(stream.__anext__(), 0.002)
+                except asyncio.TimeoutError:
+                    timeouts += 1
+                    continue
+                except StopAsyncIteration:
+                    break
+                seqs.append(event.seq)
+            await astop(server)
+        assert seqs == list(range(62))
+        assert timeouts > 0  # the reads really were interrupted
+
+    async def test_closing_after_a_cancelled_read_leaves_no_pending_task(self):
+        async with aserving(open_ended_script) as (server, client):
+            stream = client.asr.stream_websocket(aendless_audio())
+            assert (await stream.__anext__()).type == "session_started"
+            assert (await stream.__anext__()).type == "committed"
+            with pytest.raises(asyncio.TimeoutError):  # nothing more is coming
+                await asyncio.wait_for(stream.__anext__(), 0.05)
+
+            await stream.aclose()
+            await stream.aclose()  # safe to call again
+            await asyncio.sleep(0)  # let cancelled tasks finish
+            pending = [
+                task
+                for task in asyncio.all_tasks()
+                if task is not asyncio.current_task() and not task.done()
+            ]
+            assert pending == []
+            assert [event async for event in stream] == []
+            await astop(server)

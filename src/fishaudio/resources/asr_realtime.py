@@ -576,6 +576,9 @@ class AsyncASRRealtimeStream:
         self._audio_stream = audio_stream
         self._events: Optional[asyncio.Queue[Union[ASRRealtimeEvent, _End]]] = None
         self._task: Optional[asyncio.Task[None]] = None
+        # The pending read of the queue. It outlives a cancelled __anext__, so an
+        # event it has already taken is handed to the next read instead of lost.
+        self._getter: Optional[asyncio.Future[Union[ASRRealtimeEvent, _End]]] = None
         self._finished = False
 
     def __aiter__(self) -> AsyncASRRealtimeStream:
@@ -597,7 +600,7 @@ class AsyncASRRealtimeStream:
                     self._audio_stream,
                 )
             )
-        item = await self._next_item(self._events, self._task)
+        item = await self._next_item()
         if item is None:  # closed by aclose() while waiting
             self._finished = True
             raise StopAsyncIteration
@@ -608,30 +611,41 @@ class AsyncASRRealtimeStream:
             raise StopAsyncIteration
         return item
 
-    @staticmethod
-    async def _next_item(
-        events: asyncio.Queue[Union[ASRRealtimeEvent, _End]],
-        task: Optional[asyncio.Task[None]],
-    ) -> Union[ASRRealtimeEvent, _End, None]:
+    async def _next_item(self) -> Union[ASRRealtimeEvent, _End, None]:
         """The next queue item, or None once the session task is gone and the queue is empty.
 
         A session that ends by itself always queues an ``_End`` first. One that is
         cancelled (``aclose()`` from another task) queues nothing, so waiting on
-        the queue alone would block this consumer forever.
+        the queue alone would block this consumer forever: wait for the queue and
+        the session task together.
         """
-        if not events.empty() or task is None:
-            return await events.get()
-        get = asyncio.ensure_future(events.get())
-        try:
-            await asyncio.wait({get, task}, return_when=asyncio.FIRST_COMPLETED)
-        finally:
-            if not get.done():
-                get.cancel()
-        if get.done() and not get.cancelled():
-            return get.result()
+        events, task = self._events, self._task
+        assert events is not None and task is not None
+        if self._getter is None:
+            with contextlib.suppress(asyncio.QueueEmpty):
+                return events.get_nowait()
+            self._getter = asyncio.ensure_future(events.get())
+        getter = self._getter
+        if not getter.done():
+            # Cancelling this wait (asyncio.wait_for around __anext__, for example)
+            # leaves the getter in place for the next call.
+            await asyncio.wait({getter, task}, return_when=asyncio.FIRST_COMPLETED)
+        self._getter = None
+        if getter.done() and not getter.cancelled():
+            return getter.result()
+        # The session task ended first, or aclose() dropped the getter. Either way
+        # the getter has taken nothing: what the session queued last is still there.
+        getter.cancel()
         with contextlib.suppress(asyncio.QueueEmpty):
             return events.get_nowait()
         return None
+
+    def _drop_getter(self) -> None:
+        getter, self._getter = self._getter, None
+        if getter is not None and not getter.done():
+            # RuntimeError: the event loop is already closed
+            with contextlib.suppress(RuntimeError):
+                getter.cancel()
 
     async def __aenter__(self) -> AsyncASRRealtimeStream:
         return self
@@ -642,11 +656,14 @@ class AsyncASRRealtimeStream:
     async def aclose(self) -> None:
         """Close the connection. Safe to call more than once."""
         self._finished = True
+        self._drop_getter()
         if self._task is not None:
             self._task.cancel()
             await asyncio.wait({self._task})
 
     def __del__(self) -> None:
+        if getattr(self, "_getter", None) is not None:
+            self._drop_getter()
         task = getattr(self, "_task", None)
         if task is not None and not task.done():
             # RuntimeError: the event loop is already closed
