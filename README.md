@@ -159,14 +159,9 @@ audio = client.tts.stream(text="Hello!").collect()
 ### Speech-to-Text
 
 ```python
-from fishaudio.core import RequestOptions
-
-# transcribe-1-pro is the recommended model. Select it with the model header;
-# without it, the request runs on transcribe-1.
-pro = RequestOptions(additional_headers={"model": "transcribe-1-pro"})
-
+# transcribe-1-pro is the recommended model; without model, the request runs on transcribe-1.
 with open("meeting.wav", "rb") as f:
-    result = client.asr.transcribe(audio=f.read(), request_options=pro)
+    result = client.asr.transcribe(audio=f.read(), model="transcribe-1-pro")
 
 # On transcribe-1-pro, text keeps <|speaker:N|> markers; speaker_turns has clean text per speaker.
 print(result.text)

@@ -20,6 +20,7 @@ class ASRClient:
         audio: bytes,
         language: Optional[str] = OMIT,
         include_timestamps: bool = True,
+        model: Optional[str] = None,
         request_options: Optional[RequestOptions] = None,
     ) -> ASRResponse:
         """
@@ -30,6 +31,8 @@ class ASRClient:
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
                 (and speaker turns, on models that return them)
+            model: ASR model, e.g. "transcribe-1-pro" (recommended). If not provided,
+                the request runs on the API's default model, transcribe-1
             request_options: Request-level overrides
 
         Returns:
@@ -38,18 +41,13 @@ class ASRClient:
 
         Example:
             ```python
-            from fishaudio.core import RequestOptions
-
             client = FishAudio(api_key="...")
 
             with open("audio.mp3", "rb") as f:
                 audio_bytes = f.read()
 
             result = client.asr.transcribe(
-                audio=audio_bytes,
-                request_options=RequestOptions(
-                    additional_headers={"model": "transcribe-1-pro"}
-                ),
+                audio=audio_bytes, model="transcribe-1-pro"
             )
             print(result.text)
             for segment in result.segments:
@@ -67,7 +65,10 @@ class ASRClient:
         response = self._client.request(
             "POST",
             "/v1/asr",
-            headers={"Content-Type": "application/msgpack"},
+            headers={
+                "Content-Type": "application/msgpack",
+                **({"model": model} if model is not None else {}),
+            },
             content=ormsgpack.packb(payload),
             request_options=request_options,
         )
@@ -88,6 +89,7 @@ class AsyncASRClient:
         audio: bytes,
         language: Optional[str] = OMIT,
         include_timestamps: bool = True,
+        model: Optional[str] = None,
         request_options: Optional[RequestOptions] = None,
     ) -> ASRResponse:
         """
@@ -98,6 +100,8 @@ class AsyncASRClient:
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
                 (and speaker turns, on models that return them)
+            model: ASR model, e.g. "transcribe-1-pro" (recommended). If not provided,
+                the request runs on the API's default model, transcribe-1
             request_options: Request-level overrides
 
         Returns:
@@ -106,18 +110,13 @@ class AsyncASRClient:
 
         Example:
             ```python
-            from fishaudio.core import RequestOptions
-
             client = AsyncFishAudio(api_key="...")
 
             async with aiofiles.open("audio.mp3", "rb") as f:
                 audio_bytes = await f.read()
 
             result = await client.asr.transcribe(
-                audio=audio_bytes,
-                request_options=RequestOptions(
-                    additional_headers={"model": "transcribe-1-pro"}
-                ),
+                audio=audio_bytes, model="transcribe-1-pro"
             )
             print(result.text)
             for segment in result.segments:
@@ -135,7 +134,10 @@ class AsyncASRClient:
         response = await self._client.request(
             "POST",
             "/v1/asr",
-            headers={"Content-Type": "application/msgpack"},
+            headers={
+                "Content-Type": "application/msgpack",
+                **({"model": model} if model is not None else {}),
+            },
             content=ormsgpack.packb(payload),
             request_options=request_options,
         )
