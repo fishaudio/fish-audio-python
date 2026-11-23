@@ -7,7 +7,7 @@ This example demonstrates the most basic usage of the Fish Audio SDK:
 - Save the audio to an MP3 file
 
 Requirements:
-    pip install fishaudio
+    pip install fish-audio-sdk
 
 Environment Setup:
     export FISH_API_KEY="your_api_key_here"

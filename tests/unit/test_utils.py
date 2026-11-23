@@ -79,9 +79,9 @@ class TestPlay:
             with pytest.raises(DependencyError) as exc_info:
                 play(b"audio", use_ffmpeg=False)
 
-            assert "sounddevice" in str(exc_info.value) or "fishaudio[utils]" in str(
+            assert "sounddevice" in str(
                 exc_info.value
-            )
+            ) or "fish-audio-sdk[utils]" in str(exc_info.value)
 
     def test_play_notebook_not_installed(self):
         """Test error when IPython not available."""

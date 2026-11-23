@@ -10,7 +10,7 @@ This is useful for:
 - Monitoring usage and remaining credits
 
 Requirements:
-    pip install fishaudio
+    pip install fish-audio-sdk
 
 Environment Setup:
     export FISH_API_KEY="your_api_key_here"
