@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.5.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.4.0...fish-audio-sdk-v1.5.0) (2026-11-24)
+
+
+### Features
+
+* **asr:** add realtime speech-to-text ([#170](https://github.com/fishaudio/fish-audio-python/issues/170)) ([6a604bd](https://github.com/fishaudio/fish-audio-python/commit/6a604bd799a0e0eb3b87537f7e19a8d90766fb4c))
+
+
+### Bug Fixes
+
+* correct install package name to fish-audio-sdk ([#171](https://github.com/fishaudio/fish-audio-python/issues/171)) ([a850a08](https://github.com/fishaudio/fish-audio-python/commit/a850a081479c061d568ce07eb61cab757d5c0868))
+* **tts:** stream HTTP audio incrementally instead of buffering the full response ([#168](https://github.com/fishaudio/fish-audio-python/issues/168)) ([733d92c](https://github.com/fishaudio/fish-audio-python/commit/733d92ceeda42caa068f03f3fabd23a2d42aa5e7))
+* use shutil.which so play() and stream() work on Windows ([#163](https://github.com/fishaudio/fish-audio-python/issues/163)) ([8575af8](https://github.com/fishaudio/fish-audio-python/commit/8575af809a346eb2047a04e3ba1f769b2d5463bc))
+
+
+### Documentation
+
+* replace README banner with brand-consistent light and dark artwork ([#169](https://github.com/fishaudio/fish-audio-python/issues/169)) ([43660b3](https://github.com/fishaudio/fish-audio-python/commit/43660b3ff7562b66bee249a9dc495621c8efa9db))
+
 ## [1.4.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.3.0...fish-audio-sdk-v1.4.0) (2026-10-31)
 
 
