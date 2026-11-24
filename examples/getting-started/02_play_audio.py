@@ -7,7 +7,7 @@ This example demonstrates how to play generated audio immediately:
 - Different playback methods (ffmpeg, sounddevice)
 
 Requirements:
-    pip install fishaudio
+    pip install fish-audio-sdk
 
     # For audio playback (choose one):
     # Option 1 (recommended): Install ffmpeg
