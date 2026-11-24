@@ -785,6 +785,74 @@ class TestSyncSession:
         assert wait_for_no_sender_threads()
         assert [m["type"] for m in conn.received] == ["config", "audio"]
 
+    def test_close_interrupts_a_blocked_write(self):
+        """The server stops reading, so the sender blocks in a socket write while
+        it holds the link. Closing must not wait for that write."""
+        release = threading.Event()
+        sent = []
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            release.wait(10)  # read nothing: the client's socket buffer fills up
+
+        def audio():
+            while True:
+                sent.append(time.monotonic())
+                yield b"\x00" * (1 << 20)
+
+        def sender_is_blocked():
+            return bool(sent) and time.monotonic() - sent[-1] > 0.3
+
+        with serving(script) as (server, client):
+            stream = client.asr.stream_websocket(audio())
+            try:
+                assert next(stream).type == "session_started"
+                deadline = time.monotonic() + 5
+                while not sender_is_blocked() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                assert sender_is_blocked()
+
+                closing = threading.Thread(target=stream.close, daemon=True)
+                started = time.monotonic()
+                closing.start()
+                closing.join(3)
+                assert not closing.is_alive(), "close() is stuck behind the write"
+                assert time.monotonic() - started < 2
+                assert wait_for_no_sender_threads()
+                with pytest.raises(WebSocketError):
+                    stream.finalize()
+            finally:
+                release.set()
+            server.stop()
+
+    def test_a_second_thread_cannot_read_while_one_is_reading(self):
+        """Two threads never get the same event: Python refuses the second read."""
+        finish = threading.Event()
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            finish.wait(10)
+            conn.send(SESSION_DONE)
+            conn.close(1000, "done")
+
+        with serving(script) as (server, client):
+            stream = client.asr.stream_websocket(iter(()))
+            assert next(stream).type == "session_started"
+            first = []
+            reader = threading.Thread(target=lambda: first.append(next(stream)))
+            reader.start()
+            try:
+                time.sleep(0.1)  # the reader is now waiting for an event
+                with pytest.raises(ValueError, match="already executing"):
+                    next(stream)
+            finally:
+                finish.set()
+                reader.join(5)
+            assert [event.type for event in first] == ["session_done"]
+            server.stop()
+
     def test_audio_stream_that_is_not_a_generator_is_not_closed(self):
         class Source:
             closed = False
@@ -1332,4 +1400,59 @@ class TestAsyncSession:
             ]
             assert pending == []
             assert [event async for event in stream] == []
+            await astop(server)
+
+    async def test_concurrent_reads_do_not_deliver_an_event_twice(self):
+        async with aserving(open_ended_script) as (server, client):
+            async with client.asr.stream_websocket(aendless_audio()) as stream:
+                assert (await stream.__anext__()).type == "session_started"
+                assert (await stream.__anext__()).type == "committed"
+
+                first = asyncio.ensure_future(stream.__anext__())
+                await asyncio.sleep(0)  # the first read is now waiting
+                second = asyncio.ensure_future(stream.__anext__())
+                await asyncio.sleep(0)
+                stream._events.put_nowait(ASRDraftEvent(turn_index=0, text="once"))
+                done, pending = await asyncio.wait({first, second}, timeout=0.5)
+                for read in pending:
+                    read.cancel()
+
+                delivered = [r.result() for r in done if r.exception() is None]
+                assert [event.text for event in delivered] == ["once"]
+                assert first in done and first.exception() is None
+                with pytest.raises(RuntimeError, match="already waiting"):
+                    await second
+                # The refused read took nothing and broke nothing.
+                stream._events.put_nowait(ASRDraftEvent(turn_index=0, text="next"))
+                assert (await asyncio.wait_for(stream.__anext__(), 1)).text == "next"
+            await astop(server)
+
+    async def test_aclose_interrupts_a_blocked_write(self):
+        release = threading.Event()
+        sent = []
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            release.wait(10)  # read nothing: the client's socket buffer fills up
+
+        async def audio():
+            while True:
+                sent.append(time.monotonic())
+                yield b"\x00" * (1 << 20)
+
+        def sender_is_blocked():
+            return bool(sent) and time.monotonic() - sent[-1] > 0.3
+
+        async with aserving(script) as (server, client):
+            stream = client.asr.stream_websocket(audio())
+            try:
+                assert (await stream.__anext__()).type == "session_started"
+                deadline = time.monotonic() + 5
+                while not sender_is_blocked() and time.monotonic() < deadline:
+                    await asyncio.sleep(0.05)
+                assert sender_is_blocked()
+                await asyncio.wait_for(stream.aclose(), 2)
+            finally:
+                release.set()
             await astop(server)

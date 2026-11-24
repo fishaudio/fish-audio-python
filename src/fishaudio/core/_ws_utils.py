@@ -14,6 +14,30 @@ import wsproto.events
 logger = logging.getLogger(__name__)
 
 
+def _socket(ws: Any) -> Any:
+    stream = getattr(ws, "stream", None)
+    if stream is None:
+        response = getattr(ws, "response", None)
+        stream = response.extensions.get("network_stream") if response else None
+    return stream.get_extra_info("socket") if stream is not None else None
+
+
+def interrupt_writes(ws: Any) -> None:
+    """Make a socket write that is blocked in another thread fail now.
+
+    A write blocks for as long as the peer does not read, and httpx-ws holds its
+    write lock meanwhile, so nothing else can be sent either, not even the close
+    frame. Shutting the socket down is the only way to end that from outside.
+    """
+    try:
+        sock = _socket(ws)
+        if sock is not None:
+            with contextlib.suppress(OSError):
+                sock.shutdown(socket.SHUT_RDWR)
+    except Exception:
+        logger.debug("interrupt_writes failed", exc_info=True)
+
+
 def drain_reader(ws: Any) -> None:
     """Send the close frame, shut the socket down, and wait for httpx-ws's reader
     thread to exit before the session's own ``close()`` frees the fd.
@@ -45,11 +69,7 @@ def drain_reader(ws: Any) -> None:
     read can still race. That can only be fixed inside httpx-ws's ``close()``.
     """
     try:
-        stream = getattr(ws, "stream", None)
-        if stream is None:
-            response = getattr(ws, "response", None)
-            stream = response.extensions.get("network_stream") if response else None
-        sock = stream.get_extra_info("socket") if stream is not None else None
+        sock = _socket(ws)
 
         # Moves the wsproto state to LOCAL_CLOSING; later close() calls skip the frame.
         with contextlib.suppress(Exception):

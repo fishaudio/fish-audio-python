@@ -21,7 +21,7 @@ import httpx
 import ormsgpack
 from httpx_ws import HTTPXWSException, WebSocketDisconnect, WebSocketUpgradeError
 
-from fishaudio.core._ws_utils import drain_reader
+from fishaudio.core._ws_utils import drain_reader, interrupt_writes
 from fishaudio.core.client_wrapper import _api_error
 from fishaudio.exceptions import ASRRealtimeError, WebSocketError
 from fishaudio.types.asr_realtime import (
@@ -75,6 +75,9 @@ _DRAIN_SECONDS = 0.05
 # How long the async session waits for the cancelled audio sender, and with it
 # the audio stream's own cleanup, before it closes the connection anyway.
 _SENDER_CLEANUP_SECONDS = 1.0
+# How long closing waits for a write to the socket. A write does not finish while
+# the server is not reading; after this the connection is cut instead.
+_CLOSE_WRITE_SECONDS = 0.5
 
 _EVENT_TYPES: dict[str, type[ASRRealtimeEvent]] = {
     "session_started": ASRSessionStartedEvent,
@@ -201,9 +204,19 @@ class _Link:
             self._ws = ws
 
     def close(self) -> None:
-        with self._lock:
-            self._ws = None
-            self.closed = True
+        """End the link. Does not wait for a write that is blocked."""
+        self.closed = True  # the sender stops at its next chunk
+        ws = self._ws
+        if not self._lock.acquire(timeout=_CLOSE_WRITE_SECONDS):
+            # A send holds the lock across a socket write that is not finishing.
+            # Cut the connection so that it fails; nothing else can be sent
+            # before it does, the close frame included.
+            interrupt_writes(ws)
+            if not self._lock.acquire(timeout=_CLOSE_WRITE_SECONDS):
+                self._ws = None
+                return
+        self._ws = None
+        self._lock.release()
 
     def send(self, data: bytes) -> None:
         with self._lock:
@@ -326,6 +339,12 @@ class ASRRealtimeStream:
     interrupt an audio stream that is blocked waiting for audio (for example a
     microphone read with no timeout): make your audio source end, or yield
     regularly, so the thread can exit.
+
+    Closing does not wait for a server that has stopped reading: a write that
+    is still pending after half a second is interrupted by cutting the
+    connection, without a close frame.
+
+    Read the events from one thread at a time.
 
     The control methods send a message at the current position in the audio
     stream; they can be called from any thread once ``session_started`` has
@@ -541,6 +560,14 @@ async def _run_session(
                     # not keep the connection open and the consumer waiting.
                     await asyncio.wait({sender}, timeout=_SENDER_CLEANUP_SECONDS)
                     sender.add_done_callback(_retrieve_exception)
+                # The close frame is a write like any other: it does not finish
+                # while the server is not reading, or while a control message
+                # sent from another task is stuck in the same way. Bound it here;
+                # leaving the block then closes the transport without the frame.
+                try:
+                    await asyncio.wait_for(ws.close(), _CLOSE_WRITE_SECONDS)
+                except Exception:  # includes the timeout
+                    logger.debug("Close frame was not sent", exc_info=True)
     except WebSocketUpgradeError as e:
         error = _upgrade_error(e.response)
         error.__cause__ = e
@@ -563,6 +590,10 @@ class AsyncASRRealtimeStream:
     if it is an async generator. Up to 256 events are buffered for a consumer
     that reads slowly; beyond that the session stops reading from the server
     until the consumer catches up.
+
+    Read the events from one task at a time: a read started while another is
+    waiting raises ``RuntimeError``. A read that was cancelled (for example by
+    ``asyncio.wait_for``) loses nothing; just read again.
 
     The control methods send a message at the current position in the audio
     stream; they can be awaited once ``session_started`` has been received.
@@ -588,6 +619,7 @@ class AsyncASRRealtimeStream:
         # The pending read of the queue. It outlives a cancelled __anext__, so an
         # event it has already taken is handed to the next read instead of lost.
         self._getter: Optional[asyncio.Future[Union[ASRRealtimeEvent, _End]]] = None
+        self._reading = False
         self._finished = False
 
     def __aiter__(self) -> AsyncASRRealtimeStream:
@@ -609,7 +641,18 @@ class AsyncASRRealtimeStream:
                     self._audio_stream,
                 )
             )
-        item = await self._next_item()
+        if self._reading:
+            # Events have one order and one reader. Two reads waiting together
+            # would be handed the same event, so refuse the second, as Python
+            # does for a generator that is already running.
+            raise RuntimeError(
+                "Another read of this stream is already waiting for an event"
+            )
+        self._reading = True
+        try:
+            item = await self._next_item()
+        finally:
+            self._reading = False
         if item is None:  # closed by aclose() while waiting
             self._finished = True
             raise StopAsyncIteration
