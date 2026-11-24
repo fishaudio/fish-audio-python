@@ -6,6 +6,8 @@ import httpx
 import ormsgpack
 from httpx_ws import WebSocketDisconnect, aconnect_ws, connect_ws
 
+from fishaudio.core._ws_utils import drain_reader
+
 from .exceptions import WebSocketErr
 from .schemas import Backends, CloseEvent, StartEvent, TextEvent, TTSRequest
 
@@ -70,22 +72,25 @@ class WebSocketSession:
 
             sender_future = self._executor.submit(sender)
 
-            while True:
-                try:
-                    message = ws.receive_bytes()
-                    data = ormsgpack.unpackb(message)
-                    event = data["event"]
-                    if event == "audio":
-                        yield data["audio"]
-                    elif event == "finish":
-                        if data["reason"] == "error":
-                            raise WebSocketErr
-                        elif data["reason"] == "stop":
-                            break
-                except WebSocketDisconnect:
-                    raise WebSocketErr
+            try:
+                while True:
+                    try:
+                        message = ws.receive_bytes()
+                        data = ormsgpack.unpackb(message)
+                        event = data["event"]
+                        if event == "audio":
+                            yield data["audio"]
+                        elif event == "finish":
+                            if data["reason"] == "error":
+                                raise WebSocketErr
+                            elif data["reason"] == "stop":
+                                break
+                    except WebSocketDisconnect:
+                        raise WebSocketErr
 
-            sender_future.result()
+                sender_future.result()
+            finally:
+                drain_reader(ws)
 
 
 class AsyncWebSocketSession:

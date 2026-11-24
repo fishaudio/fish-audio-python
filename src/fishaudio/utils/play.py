@@ -91,7 +91,7 @@ def play(
     except ImportError:
         raise DependencyError(
             "sounddevice and soundfile",
-            "pip install 'fishaudio[utils]'  # or\npip install sounddevice soundfile",
+            "pip install 'fish-audio-sdk[utils]'  # or\npip install sounddevice soundfile",
         )
 
     # Load and play audio

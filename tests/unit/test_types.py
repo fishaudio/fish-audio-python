@@ -10,6 +10,7 @@ from fishaudio.types import (
     PaginatedResponse,
     Prosody,
     ReferenceAudio,
+    SpeakerTurn,
     TTSConfig,
     TTSRequest,
     Voice,
@@ -51,17 +52,73 @@ class TestASRTypes:
     """Test ASR-related types."""
 
     def test_asr_segment(self):
-        segment = ASRSegment(text="Hello", start=0.0, end=500.0)
+        segment = ASRSegment(text="Hello", start=0.0, end=0.5)
         assert segment.text == "Hello"
         assert segment.start == 0.0
-        assert segment.end == 500.0
+        assert segment.end == 0.5
+
+    def test_speaker_turn(self):
+        turn = SpeakerTurn(speaker="speaker:0", text="Hello", start=0.24, end=0.64)
+        assert turn.speaker == "speaker:0"
+        assert turn.text == "Hello"
+        assert turn.start == 0.24
+        assert turn.end == 0.64
 
     def test_asr_response(self, sample_asr_response):
         response = ASRResponse.model_validate(sample_asr_response)
         assert response.text == "Hello world"
-        assert response.duration == 1500.0
+        assert response.duration == 1.5
         assert len(response.segments) == 2
         assert isinstance(response.segments[0], ASRSegment)
+        # Fields the API did not return default to None
+        assert response.language is None
+        assert response.language_code is None
+        assert response.request_id is None
+        assert response.speaker_turns is None
+
+    def test_asr_response_standard_model(self, sample_asr_standard_response):
+        """transcribe-1 returns the language but no request_id or speaker_turns."""
+        response = ASRResponse.model_validate(sample_asr_standard_response)
+        assert response.text == "Hello, world."
+        assert response.duration == 1.62
+        assert response.language == "English"
+        assert response.language_code == "en"
+        assert response.request_id is None
+        assert response.speaker_turns is None
+        assert response.model_dump(exclude_none=True) == sample_asr_standard_response
+
+    def test_asr_response_pro_model(self, sample_asr_pro_response):
+        """transcribe-1-pro also returns request_id and speaker_turns."""
+        response = ASRResponse.model_validate(sample_asr_pro_response)
+        assert response.duration == 3.5
+        assert response.language == "English"
+        assert response.language_code == "en"
+        assert response.request_id == "0b9e4f5c-7d2a-4f1e-9c3b-5a8d6e2f1c07"
+        assert len(response.segments) == 4
+        assert response.speaker_turns is not None
+        assert len(response.speaker_turns) == 2
+        assert all(isinstance(turn, SpeakerTurn) for turn in response.speaker_turns)
+        first, second = response.speaker_turns
+        assert (first.speaker, first.text, first.start, first.end) == (
+            "speaker:0",
+            "Hello there.",
+            0.24,
+            1.2,
+        )
+        assert (second.speaker, second.text, second.start, second.end) == (
+            "speaker:1",
+            "Hi back.",
+            1.8,
+            3.1,
+        )
+        # Every field of the API response is kept
+        assert response.model_dump() == sample_asr_pro_response
+
+    def test_asr_response_empty_speaker_turns(self, sample_asr_pro_response):
+        """An empty speaker_turns list (no speech) stays a list, not None."""
+        sample_asr_pro_response.update(text="", segments=[], speaker_turns=[])
+        response = ASRResponse.model_validate(sample_asr_pro_response)
+        assert response.speaker_turns == []
 
 
 class TestAccountTypes:
@@ -173,3 +230,11 @@ class TestVoiceVisibility:
         sample_voice_response["visibility"] = "unlist"
         voice = Voice.model_validate(sample_voice_response)
         assert voice.visibility == "unlist"
+
+
+def test_tts_request_sends_opus_bitrate_in_bps():
+    assert TTSRequest(text="hi", format="opus").model_dump()["opus_bitrate"] == 32000
+    assert TTSRequest(text="hi", opus_bitrate=64).model_dump()["opus_bitrate"] == 64000
+    assert (
+        TTSRequest(text="hi", opus_bitrate=-1000).model_dump()["opus_bitrate"] == -1000
+    )

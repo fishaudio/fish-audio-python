@@ -56,7 +56,7 @@ class ASRSegment(BaseModel):
 
 class ASRResponse(BaseModel):
     text: str
-    # Duration in milliseconds
+    # Duration in seconds
     duration: float
     segments: list[ASRSegment]
 

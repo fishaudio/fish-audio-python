@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from .shared import AudioFormat, LatencyMode
 
@@ -156,6 +156,11 @@ class TTSRequest(BaseModel):
     min_chunk_length: int = 50
     condition_on_previous_chunks: bool = True
     early_stop_threshold: float = 1.0
+
+    @field_serializer("opus_bitrate")
+    def _opus_bitrate_bps(self, value: int) -> int:
+        # The API takes opus_bitrate in bps (24000, 32000, ...); -1000 means auto.
+        return value * 1000 if value > 0 else value
 
 
 # WebSocket event types for streaming TTS

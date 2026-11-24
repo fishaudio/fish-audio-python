@@ -1,4 +1,7 @@
-![python.png](https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/python.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/banner-dark.svg" />
+  <img alt="Fish Audio Python SDK" src="https://raw.githubusercontent.com/fishaudio/fish-audio-python/refs/heads/main/.github/assets/banner-light.svg" />
+</picture>
 
 # Fish Audio Python SDK
 
@@ -33,7 +36,7 @@ pip install fish-audio-sdk[utils]
 
 ## Authentication
 
-Get your API key from [fish.audio/app/api-keys](https://fish.audio/app/api-keys):
+Get your API key from [fish.audio/app/api-keys](https://fish.audio/app/api-keys/?utm_source=github&utm_medium=sdk-readme&utm_content=python):
 
 ```bash
 export FISH_API_KEY=your_api_key_here
@@ -84,6 +87,28 @@ asyncio.run(main())
 ## Core Features
 
 ### Text-to-Speech
+
+**Selecting a model:**
+
+```python
+# Recommended for production
+production_audio = client.tts.convert(
+    text="Production speech",
+    model="s2.1-pro",
+)
+
+# Free to use, including on a new account with no API credit
+free_audio = client.tts.convert(
+    text="Free speech",
+    model="s2.1-pro-free",
+)
+
+# Drama 3: our most expressive model (uses API credit)
+drama_audio = client.tts.convert(
+    text="Expressive speech",
+    model="drama-3",
+)
+```
 
 **With custom voice:**
 
@@ -137,15 +162,28 @@ audio = client.tts.stream(text="Hello!").collect()
 ### Speech-to-Text
 
 ```python
-# Transcribe audio
-with open("audio.wav", "rb") as f:
-    result = client.asr.transcribe(audio=f.read(), language="en")
+from fishaudio.core import RequestOptions
 
+# transcribe-1-pro is the recommended model. Select it with the model header;
+# without it, the request runs on transcribe-1.
+pro = RequestOptions(additional_headers={"model": "transcribe-1-pro"})
+
+with open("meeting.wav", "rb") as f:
+    result = client.asr.transcribe(audio=f.read(), request_options=pro)
+
+# On transcribe-1-pro, text keeps <|speaker:N|> markers; speaker_turns has clean text per speaker.
 print(result.text)
 
-# Access timestamped segments
+# Word-level timestamps
 for segment in result.segments:
     print(f"[{segment.start:.2f}s - {segment.end:.2f}s] {segment.text}")
+
+# Speaker turns (transcribe-1-pro, returned with timestamps)
+for turn in result.speaker_turns or []:
+    print(f"[{turn.start:.2f}s - {turn.end:.2f}s] {turn.speaker}: {turn.text}")
+
+# Language of the transcript, when the API returns it
+print(result.language_code)  # e.g. "en"
 ```
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/speech-to-text)

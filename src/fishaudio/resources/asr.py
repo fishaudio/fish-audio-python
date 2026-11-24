@@ -29,19 +29,28 @@ class ASRClient:
             audio: Audio file bytes
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
+                (and speaker turns, on models that return them)
             request_options: Request-level overrides
 
         Returns:
-            ASRResponse with transcription text, duration, and segments
+            ASRResponse with transcription text, duration (in seconds), and segments,
+            plus language, request ID and speaker turns when the API returns them
 
         Example:
             ```python
+            from fishaudio.core import RequestOptions
+
             client = FishAudio(api_key="...")
 
             with open("audio.mp3", "rb") as f:
                 audio_bytes = f.read()
 
-            result = client.asr.transcribe(audio=audio_bytes, language="en")
+            result = client.asr.transcribe(
+                audio=audio_bytes,
+                request_options=RequestOptions(
+                    additional_headers={"model": "transcribe-1-pro"}
+                ),
+            )
             print(result.text)
             for segment in result.segments:
                 print(f"{segment.start}-{segment.end}: {segment.text}")
@@ -88,19 +97,28 @@ class AsyncASRClient:
             audio: Audio file bytes
             language: Language code (e.g., "en", "zh"). Auto-detected if not provided.
             include_timestamps: Whether to include timestamp information for segments
+                (and speaker turns, on models that return them)
             request_options: Request-level overrides
 
         Returns:
-            ASRResponse with transcription text, duration, and segments
+            ASRResponse with transcription text, duration (in seconds), and segments,
+            plus language, request ID and speaker turns when the API returns them
 
         Example:
             ```python
+            from fishaudio.core import RequestOptions
+
             client = AsyncFishAudio(api_key="...")
 
             async with aiofiles.open("audio.mp3", "rb") as f:
                 audio_bytes = await f.read()
 
-            result = await client.asr.transcribe(audio=audio_bytes, language="en")
+            result = await client.asr.transcribe(
+                audio=audio_bytes,
+                request_options=RequestOptions(
+                    additional_headers={"model": "transcribe-1-pro"}
+                ),
+            )
             print(result.text)
             for segment in result.segments:
                 print(f"{segment.start}-{segment.end}: {segment.text}")

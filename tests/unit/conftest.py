@@ -58,14 +58,51 @@ def sample_paginated_voices_response(sample_voice_response):
 
 @pytest.fixture
 def sample_asr_response():
-    """Sample ASR API response."""
+    """Sample ASR API response (times in seconds)."""
     return {
         "text": "Hello world",
-        "duration": 1500.0,
+        "duration": 1.5,
         "segments": [
-            {"text": "Hello", "start": 0.0, "end": 500.0},
-            {"text": "world", "start": 500.0, "end": 1500.0},
+            {"text": "Hello", "start": 0.0, "end": 0.5},
+            {"text": "world", "start": 0.5, "end": 1.5},
         ],
+    }
+
+
+@pytest.fixture
+def sample_asr_standard_response():
+    """Sample transcribe-1 ASR API response with timestamps requested."""
+    return {
+        "language": "English",
+        "language_code": "en",
+        "text": "Hello, world.",
+        "segments": [
+            {"text": "Hello", "start": 0.24, "end": 0.64},
+            {"text": "world", "start": 0.64, "end": 1.2},
+        ],
+        "duration": 1.62,
+    }
+
+
+@pytest.fixture
+def sample_asr_pro_response():
+    """Sample transcribe-1-pro ASR API response with timestamps requested."""
+    return {
+        "duration": 3.5,
+        "language": "English",
+        "language_code": "en",
+        "request_id": "0b9e4f5c-7d2a-4f1e-9c3b-5a8d6e2f1c07",
+        "segments": [
+            {"end": 0.64, "start": 0.24, "text": "Hello"},
+            {"end": 1.2, "start": 0.64, "text": "there"},
+            {"end": 2.1, "start": 1.8, "text": "Hi"},
+            {"end": 3.1, "start": 2.1, "text": "back"},
+        ],
+        "speaker_turns": [
+            {"speaker": "speaker:0", "text": "Hello there.", "start": 0.24, "end": 1.2},
+            {"speaker": "speaker:1", "text": "Hi back.", "start": 1.8, "end": 3.1},
+        ],
+        "text": "<|speaker:0|>Hello there.<|speaker:1|>Hi back.",
     }
 
 

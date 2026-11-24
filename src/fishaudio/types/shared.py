@@ -22,7 +22,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 
 # Model types
-Model = Literal["speech-1.5", "speech-1.6", "s1", "s2-pro"]
+Model = Literal["s1", "s2-pro", "s2.1-pro", "s2.1-pro-free", "drama-3"]
 
 # Deprecated models
 DEPRECATED_MODELS = {"speech-1.5", "speech-1.6"}
@@ -32,7 +32,7 @@ def warn_if_deprecated_model(model: str) -> None:
     """Emit a deprecation warning if a legacy model is used."""
     if model in DEPRECATED_MODELS:
         warnings.warn(
-            f"Model '{model}' is deprecated. Use 's1' or 's2-pro' instead.",
+            f"Model '{model}' is deprecated. Use 's2.1-pro' instead.",
             DeprecationWarning,
             stacklevel=3,
         )

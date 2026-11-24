@@ -14,6 +14,7 @@ from fishaudio.core import (
     RequestOptions,
     WebSocketOptions,
 )
+from fishaudio.core._ws_utils import drain_reader
 from fishaudio.core.iterators import AsyncAudioStream, AudioStream
 from fishaudio.types import (
     AudioFormat,
@@ -82,7 +83,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AudioStream:
         """
@@ -139,22 +140,27 @@ class TTSClient:
 
         payload = request.model_dump(exclude_none=True)
 
-        # Make request with streaming
+        # Send the request and return once headers arrive; the body is read
+        # lazily so chunks reach the caller as the server produces them.
         response = self._client.request(
             "POST",
             "/v1/tts",
             headers={"Content-Type": "application/msgpack", "model": model},
             content=ormsgpack.packb(payload),
             request_options=request_options,
+            stream=True,
         )
 
         # Create generator and wrap with AudioStream
         def _stream():
-            for chunk in response.iter_bytes():
-                if chunk:
-                    yield chunk
+            try:
+                for chunk in response.iter_bytes():
+                    if chunk:
+                        yield chunk
+            finally:
+                response.close()
 
-        return AudioStream(_stream())
+        return AudioStream(_stream(), on_close=response.close)
 
     def convert(
         self,
@@ -166,7 +172,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -228,7 +234,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         max_workers: int = 10,
         ws_options: Optional[WebSocketOptions] = None,
     ) -> Iterator[bytes]:
@@ -362,10 +368,15 @@ class TTSClient:
 
                 sender_future = executor.submit(sender)
 
-                # Process incoming audio messages
-                yield from iter_websocket_audio(ws)
+                try:
+                    # Process incoming audio messages
+                    yield from iter_websocket_audio(ws)
 
-                sender_future.result()
+                    sender_future.result()
+                finally:
+                    # Stop httpx-ws's reader thread before the socket is closed so it
+                    # cannot read from a reused fd belonging to the next connection.
+                    drain_reader(ws)
         finally:
             executor.shutdown(wait=False)
 
@@ -386,7 +397,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AsyncAudioStream:
         """
@@ -444,22 +455,27 @@ class AsyncTTSClient:
 
         payload = request.model_dump(exclude_none=True)
 
-        # Make request with streaming
+        # Send the request and return once headers arrive; the body is read
+        # lazily so chunks reach the caller as the server produces them.
         response = await self._client.request(
             "POST",
             "/v1/tts",
             headers={"Content-Type": "application/msgpack", "model": model},
             content=ormsgpack.packb(payload),
             request_options=request_options,
+            stream=True,
         )
 
         # Create async generator and wrap with AsyncAudioStream
         async def _stream():
-            async for chunk in response.aiter_bytes():
-                if chunk:
-                    yield chunk
+            try:
+                async for chunk in response.aiter_bytes():
+                    if chunk:
+                        yield chunk
+            finally:
+                await response.aclose()
 
-        return AsyncAudioStream(_stream())
+        return AsyncAudioStream(_stream(), on_close=response.aclose)
 
     async def convert(
         self,
@@ -471,7 +487,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -534,7 +550,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         ws_options: Optional[WebSocketOptions] = None,
     ):
         """
