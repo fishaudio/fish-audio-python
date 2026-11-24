@@ -32,6 +32,7 @@ from .core.iterators import AsyncAudioStream, AudioStream
 from .core.websocket_options import WebSocketOptions
 from .exceptions import (
     APIError,
+    ASRRealtimeError,
     AuthenticationError,
     DependencyError,
     FishAudioError,
@@ -42,7 +43,19 @@ from .exceptions import (
     ValidationError,
     WebSocketError,
 )
-from .types import FlushEvent, ReferenceAudio, TextEvent, TTSConfig
+from .resources.asr_realtime import ASRRealtimeStream, AsyncASRRealtimeStream
+from .types import (
+    ASRContext,
+    ASRContextItem,
+    ASRFinalizeEvent,
+    ASRRealtimeConfig,
+    ASRResults,
+    ASRTurnDetection,
+    FlushEvent,
+    ReferenceAudio,
+    TextEvent,
+    TTSConfig,
+)
 from .utils import play, save, stream
 
 # Main exports
@@ -57,15 +70,25 @@ __all__ = [
     # Audio streams
     "AudioStream",
     "AsyncAudioStream",
+    # Realtime speech-to-text sessions
+    "ASRRealtimeStream",
+    "AsyncASRRealtimeStream",
     # Configuration
+    "ASRContext",
+    "ASRRealtimeConfig",
+    "ASRResults",
+    "ASRTurnDetection",
     "TTSConfig",
     "WebSocketOptions",
     # Types
+    "ASRContextItem",
+    "ASRFinalizeEvent",
     "FlushEvent",
     "ReferenceAudio",
     "TextEvent",
     # Exceptions
     "APIError",
+    "ASRRealtimeError",
     "AuthenticationError",
     "DependencyError",
     "FishAudioError",

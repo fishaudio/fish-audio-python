@@ -1,5 +1,6 @@
 """Tests for the sync WebSocket reader-draining helper."""
 
+import queue
 import socket
 import threading
 from unittest.mock import Mock, patch
@@ -25,6 +26,7 @@ class TestDrainReader:
     def test_sends_close_frame_then_shuts_down_socket_and_joins_reader(self):
         sock = Mock()
         thread = Mock()
+        thread.is_alive.return_value = False  # the reader exits on the first join
         ws = _make_ws(sock, thread)
         parent = Mock()
         parent.attach_mock(ws.send, "send")
@@ -38,7 +40,7 @@ class TestDrainReader:
         assert isinstance(event, wsproto.events.CloseConnection)
         assert event.code == 1000
         sock.shutdown.assert_called_once_with(socket.SHUT_RDWR)
-        thread.join.assert_called_once_with(timeout=5)
+        thread.join.assert_called_once_with(timeout=0.02)
 
     def test_falls_back_to_response_network_stream(self):
         sock = Mock()
@@ -62,8 +64,35 @@ class TestDrainReader:
         sock = Mock()
         sock.shutdown.side_effect = OSError("already closed")
         thread = Mock()
+        thread.is_alive.return_value = False
         drain_reader(_make_ws(sock, thread))
-        thread.join.assert_called_once_with(timeout=5)
+        thread.join.assert_called_once_with(timeout=0.02)
+
+    def test_releases_keepalive_thread_blocked_on_full_queue_after_reader_exited(
+        self,
+    ):
+        # httpx-ws's keepalive thread closes the transport on a ping timeout and
+        # then puts an error into the event queue. With the queue full and the
+        # reader already gone, nothing else would ever make room for it, and
+        # httpx-ws joins that thread without a timeout.
+        events = queue.Queue(2)
+        events.put("unread 1")
+        events.put("unread 2")
+        reader = threading.Thread(target=lambda: None)
+        reader.start()
+        reader.join()
+        keepalive = threading.Thread(
+            target=events.put, args=(httpx_ws.WebSocketNetworkError(),), daemon=True
+        )
+        keepalive.start()
+        ws = _make_ws(Mock(), reader)
+        ws._events = events
+        ws._background_keepalive_ping_task = keepalive
+
+        drain_reader(ws)
+
+        keepalive.join(timeout=1)
+        assert not keepalive.is_alive()
 
     def test_tolerates_missing_socket_and_thread(self):
         ws = Mock()
@@ -116,6 +145,37 @@ class TestDrainReaderRealSession:
             assert hook_calls == []
         finally:
             threading.excepthook = old_hook
+            server_sock.close()
+            client_sock.close()
+
+    def test_does_not_wait_for_a_close_frame_the_peer_is_not_reading(self):
+        # No write is pending, but the send buffer is full: the last write just
+        # fitted and the peer has stopped reading. The close frame is a write
+        # too, and httpx-ws sends it without a timeout.
+        client_sock, server_sock = socket.socketpair()
+        try:
+            # Filled before the session starts: its reader thread sets the
+            # socket back to blocking every time it begins a read.
+            client_sock.setblocking(False)
+            with pytest.raises(BlockingIOError):
+                while True:
+                    client_sock.send(b"\x00" * 65536)
+            client_sock.setblocking(True)
+            ws = httpx_ws.WebSocketSession(
+                SyncStream(client_sock), keepalive_ping_interval_seconds=None
+            )
+            with ws:
+                draining = threading.Thread(target=drain_reader, args=(ws,))
+                draining.daemon = True
+                draining.start()
+                draining.join(3)
+                stuck = draining.is_alive()
+                if stuck:  # let the write through so the test can end
+                    server_sock.close()
+                    draining.join(3)
+                assert not stuck, "drain_reader is stuck behind the close frame"
+                assert not ws._background_receive_task.is_alive()
+        finally:
             server_sock.close()
             client_sock.close()
 

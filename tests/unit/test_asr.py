@@ -2,9 +2,11 @@
 
 from unittest.mock import AsyncMock, Mock
 
+import httpx
 import ormsgpack
 import pytest
 
+from fishaudio import AsyncFishAudio, FishAudio
 from fishaudio.core import AsyncClientWrapper, ClientWrapper, RequestOptions
 from fishaudio.resources.asr import ASRClient, AsyncASRClient
 from fishaudio.types import ASRResponse
@@ -301,3 +303,71 @@ class TestAsyncASRClient:
 
         call_args = async_mock_client_wrapper.request.call_args
         assert call_args[1]["request_options"] is request_options
+
+
+class TestTranscribeModel:
+    """The model parameter, checked on the HTTP request that leaves the client."""
+
+    @staticmethod
+    def _handler(seen, response):
+        def handler(request):
+            seen.append(request)
+            return httpx.Response(200, json=response)
+
+        return handler
+
+    def test_model_is_sent_as_header(self, sample_asr_response):
+        seen = []
+        http = httpx.Client(
+            base_url="https://api.test.fish.audio",
+            transport=httpx.MockTransport(self._handler(seen, sample_asr_response)),
+        )
+        client = FishAudio(api_key="test-key", httpx_client=http)
+
+        client.asr.transcribe(audio=b"fake_audio", model="transcribe-1-pro")
+
+        assert seen[0].headers["model"] == "transcribe-1-pro"
+        assert seen[0].headers["content-type"] == "application/msgpack"
+
+    def test_no_model_header_by_default(self, sample_asr_response):
+        seen = []
+        http = httpx.Client(
+            base_url="https://api.test.fish.audio",
+            transport=httpx.MockTransport(self._handler(seen, sample_asr_response)),
+        )
+        client = FishAudio(api_key="test-key", httpx_client=http)
+
+        client.asr.transcribe(audio=b"fake_audio")
+
+        assert "model" not in seen[0].headers
+
+    def test_model_wins_over_request_options_header(self, sample_asr_response):
+        seen = []
+        http = httpx.Client(
+            base_url="https://api.test.fish.audio",
+            transport=httpx.MockTransport(self._handler(seen, sample_asr_response)),
+        )
+        client = FishAudio(api_key="test-key", httpx_client=http)
+
+        client.asr.transcribe(
+            audio=b"fake_audio",
+            model="transcribe-1-pro",
+            request_options=RequestOptions(additional_headers={"model": "other"}),
+        )
+
+        assert seen[0].headers["model"] == "transcribe-1-pro"
+
+    async def test_model_is_sent_as_header_async(self, sample_asr_response):
+        seen = []
+        http = httpx.AsyncClient(
+            base_url="https://api.test.fish.audio",
+            transport=httpx.MockTransport(self._handler(seen, sample_asr_response)),
+        )
+        client = AsyncFishAudio(api_key="test-key", httpx_client=http)
+
+        await client.asr.transcribe(audio=b"fake_audio", model="transcribe-1-pro")
+        await client.asr.transcribe(audio=b"fake_audio")
+        await client.close()
+
+        assert seen[0].headers["model"] == "transcribe-1-pro"
+        assert "model" not in seen[1].headers
