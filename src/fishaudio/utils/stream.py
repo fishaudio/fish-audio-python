@@ -1,5 +1,6 @@
 """Audio streaming utility."""
 
+import shutil
 import subprocess
 from collections.abc import Iterator
 
@@ -8,11 +9,7 @@ from fishaudio.exceptions import DependencyError
 
 def _is_installed(command: str) -> bool:
     """Check if a command is available in PATH."""
-    try:
-        subprocess.run(["which", command], capture_output=True, check=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False
+    return shutil.which(command) is not None
 
 
 def stream(audio_stream: Iterator[bytes]) -> bytes:

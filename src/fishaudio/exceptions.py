@@ -55,6 +55,46 @@ class WebSocketError(FishAudioError):
     pass
 
 
+class ASRRealtimeError(WebSocketError):
+    """Raised when a realtime speech-to-text session ends with an error.
+
+    Attributes:
+        message: A short English description, for humans
+        error_type: Machine-readable error type from the server's error event
+            (e.g., "invalid_config", "idle_timeout"). None if the connection closed
+            without one
+        code: HTTP-style status from the server's error event. None if not sent
+        request_id: Identifier of the request; quote it when reporting a problem
+        close_code: WebSocket close code (e.g., 4400, 4408, 1012). None if the error
+            was raised before the connection closed
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_type: Optional[str] = None,
+        code: Optional[int] = None,
+        request_id: Optional[str] = None,
+        close_code: Optional[int] = None,
+    ):
+        self.message = message
+        self.error_type = error_type
+        self.code = code
+        self.request_id = request_id
+        self.close_code = close_code
+        details = [
+            f"close code {close_code}" if close_code is not None else None,
+            f"request {request_id}" if request_id else None,
+        ]
+        suffix = ", ".join(d for d in details if d)
+        super().__init__(
+            (f"{error_type}: " if error_type else "")
+            + message
+            + (f" ({suffix})" if suffix else "")
+        )
+
+
 class ValidationError(FishAudioError):
     """Raised when request validation fails."""
 

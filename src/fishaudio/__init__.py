@@ -37,6 +37,7 @@ from .core.iterators import (
 from .core.websocket_options import WebSocketOptions
 from .exceptions import (
     APIError,
+    ASRRealtimeError,
     AuthenticationError,
     DependencyError,
     FishAudioError,
@@ -47,7 +48,14 @@ from .exceptions import (
     ValidationError,
     WebSocketError,
 )
+from .resources.asr_realtime import ASRRealtimeStream, AsyncASRRealtimeStream
 from .types import (
+    ASRContext,
+    ASRContextItem,
+    ASRFinalizeEvent,
+    ASRRealtimeConfig,
+    ASRResults,
+    ASRTurnDetection,
     FlushEvent,
     ReferenceAudio,
     TextEvent,
@@ -73,10 +81,19 @@ __all__ = [
     "AsyncAudioStream",
     "TTSTimestampStream",
     "AsyncTTSTimestampStream",
+    # Realtime speech-to-text sessions
+    "ASRRealtimeStream",
+    "AsyncASRRealtimeStream",
     # Configuration
+    "ASRContext",
+    "ASRRealtimeConfig",
+    "ASRResults",
+    "ASRTurnDetection",
     "TTSConfig",
     "WebSocketOptions",
     # Types
+    "ASRContextItem",
+    "ASRFinalizeEvent",
     "FlushEvent",
     "ReferenceAudio",
     "TextEvent",
@@ -86,6 +103,7 @@ __all__ = [
     "TTSTimestampSegment",
     # Exceptions
     "APIError",
+    "ASRRealtimeError",
     "AuthenticationError",
     "DependencyError",
     "FishAudioError",

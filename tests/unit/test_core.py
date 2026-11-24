@@ -125,6 +125,30 @@ class TestClientWrapper:
         assert headers["Authorization"] == f"Bearer {mock_api_key}"
 
 
+class TestRequestHeaders:
+    """Headers passed by a method win over RequestOptions, whatever their case."""
+
+    def test_explicit_header_replaces_additional_header_of_other_case(
+        self, mock_api_key
+    ):
+        wrapper = ClientWrapper(api_key=mock_api_key)
+        kwargs = {"headers": {"model": "transcribe-1-pro"}}
+        wrapper._prepare_request_kwargs(
+            RequestOptions(additional_headers={"Model": "transcribe-1"}), kwargs
+        )
+        models = {k: v for k, v in kwargs["headers"].items() if k.lower() == "model"}
+        assert models == {"model": "transcribe-1-pro"}
+
+    def test_additional_header_is_kept_without_an_explicit_one(self, mock_api_key):
+        wrapper = ClientWrapper(api_key=mock_api_key)
+        kwargs = {}
+        wrapper._prepare_request_kwargs(
+            RequestOptions(additional_headers={"Model": "transcribe-1-pro"}), kwargs
+        )
+        assert kwargs["headers"]["Model"] == "transcribe-1-pro"
+        assert kwargs["headers"]["Authorization"] == f"Bearer {mock_api_key}"
+
+
 class TestAsyncClientWrapper:
     """Test async AsyncClientWrapper."""
 
