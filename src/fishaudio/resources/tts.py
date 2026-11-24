@@ -119,6 +119,8 @@ def _parse_timestamp_event(sse: ServerSentEvent) -> Optional[TTSTimestampEvent]:
         return None
     try:
         payload = json.loads(sse.data)
+        if not isinstance(payload, dict):
+            raise TypeError("event payload is not a JSON object")
         payload["audio"] = base64.b64decode(payload.pop("audio_base64"), validate=True)
         return TTSTimestampEvent.model_validate(payload)
     except (ValueError, KeyError, TypeError, binascii.Error) as exc:

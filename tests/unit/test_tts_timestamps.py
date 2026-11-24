@@ -159,6 +159,26 @@ class TestSSEDecoder:
             ServerSentEvent("message", "line1\nline2"),
         ]
 
+    @pytest.mark.parametrize("newline", [b"\r", b"\n", b"\r\n"])
+    def test_every_line_ending_at_every_chunk_boundary(self, newline):
+        raw = b"".join(BODY).replace(b"\r\n", newline)
+        raw += b"event: ping" + newline + b"data: last" + newline + newline
+        for size in (1, 2, 3, 7, len(raw)):
+            decoder = SSEDecoder()
+            events = []
+            for i in range(0, len(raw), size):
+                events += decoder.feed(raw[i : i + size])
+            assert [json.loads(e.data) for e in events[:-1]] == PAYLOADS
+            assert events[-1] == ServerSentEvent("ping", "last")
+
+    def test_cr_terminated_event_is_dispatched_without_waiting_for_more_bytes(self):
+        decoder = SSEDecoder()
+        assert decoder.feed(b"data: one\r\r") == [ServerSentEvent("message", "one")]
+        # A CRLF pair split across chunks must not count as two line endings.
+        assert decoder.feed(b"data: two\r") == []
+        assert decoder.feed(b"\ndata: three\r") == []
+        assert decoder.feed(b"\n\r\n") == [ServerSentEvent("message", "two\nthree")]
+
     def test_unicode_line_separators_stay_inside_data(self):
         text = "a b\u0085c"
         events = SSEDecoder().feed(f"data: {text}\n\n".encode())
@@ -240,12 +260,17 @@ class TestSyncTimestamps:
         assert result.audio == b"aabbccdd"
         assert _timings(result.segments) == FINAL
 
-    def test_collect_after_partial_iteration_keeps_earlier_timings(self):
-        stream = _sync_tts(_ok(_SyncBody(BODY))).stream_with_timestamps(text="Hi")
-        consumed = [next(stream).audio for _ in range(3)]
-        result = stream.collect()
-        assert b"".join(consumed) + result.audio == b"aabbccdd"
-        assert _timings(result.segments) == FINAL
+    def test_collect_after_iteration_started_is_refused(self):
+        body = _SyncBody(BODY)
+        stream = _sync_tts(_ok(body)).stream_with_timestamps(text="Hi")
+        assert next(stream).audio == b"aa"
+        with pytest.raises(RuntimeError, match="collect"):
+            stream.collect()
+        # The stream is left usable: nothing was read or closed by the refusal.
+        assert body.produced == 1
+        assert not body.closed
+        assert [e.audio for e in stream] == [b"bb", b"cc", b"dd", b""]
+        assert _timings(stream.segments) == FINAL
 
     def test_with_block_closes_after_early_break(self):
         body = _SyncBody(BODY)
@@ -291,6 +316,10 @@ class TestSyncTimestamps:
             b'data: {"message": "backend unavailable"}\n\n',
             b"data: not json\n\n",
             b'data: {"audio_base64": "!", "chunk_seq": 0}\n\n',
+            b"data: null\n\n",
+            b'data: "text"\n\n',
+            b"data: 5\n\n",
+            b'data: ["audio_base64"]\n\n',
         ],
     )
     def test_unusable_event_raises_and_closes(self, frame):
@@ -360,6 +389,17 @@ class TestAsyncTimestamps:
         tts = _async_tts(_ok(_AsyncBody(BODY)))
         converted = await tts.convert_with_timestamps(text="Hi")
         assert converted == result
+
+    async def test_collect_after_iteration_started_is_refused(self):
+        body = _AsyncBody(BODY)
+        stream = await _async_tts(_ok(body)).stream_with_timestamps(text="Hi")
+        assert (await stream.__anext__()).audio == b"aa"
+        with pytest.raises(RuntimeError, match="collect"):
+            await stream.collect()
+        assert body.produced == 1
+        assert not body.closed
+        assert [e.audio async for e in stream] == [b"bb", b"cc", b"dd", b""]
+        assert _timings(stream.segments) == FINAL
 
     async def test_async_with_closes_after_early_break(self):
         body = _AsyncBody(BODY)

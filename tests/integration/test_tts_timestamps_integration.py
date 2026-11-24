@@ -28,11 +28,12 @@ class TestTTSTimestampsIntegration:
 
     def test_stream_with_timestamps(self, client):
         with client.tts.stream_with_timestamps(text=TEXT, format="wav") as stream:
-            counts = []
-            for _ in stream:
-                counts.append(len(stream.segments))
-            assert counts == sorted(counts)  # timings only grow as audio arrives
-            assert [s.text for s in stream.segments] == WORDS
+            audio = b"".join(event.audio for event in stream)
+            segments = stream.segments
+
+        info = sf.info(io.BytesIO(audio))
+        assert [s.text for s in segments] == WORDS
+        assert all(0 <= s.start <= s.end <= info.duration + 0.1 for s in segments)
 
 
 class TestAsyncTTSTimestampsIntegration:

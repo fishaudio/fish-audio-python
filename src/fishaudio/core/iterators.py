@@ -246,8 +246,8 @@ class TTSTimestampStream:
 
     Iterating yields `TTSTimestampEvent` objects as the server produces them.
     While you iterate, `segments` holds the timings received so far, measured
-    from the start of the complete audio. `collect()` reads the rest of the
-    stream and returns the complete audio with its final timings.
+    from the start of the complete audio. Alternatively, call `collect()`
+    instead of iterating to get the complete audio with its final timings.
 
     Examples:
         ```python
@@ -283,11 +283,13 @@ class TTSTimestampStream:
         self._on_close = on_close
         self._closed = False
         self._timeline = _Timeline()
+        self._started = False
 
     def __iter__(self) -> "TTSTimestampStream":
         return self
 
     def __next__(self) -> TTSTimestampEvent:
+        self._started = True
         event = next(self._iter)
         self._timeline.add(event)
         return event
@@ -325,11 +327,25 @@ class TTSTimestampStream:
         self.close()
 
     def collect(self) -> TTSTimestampResult:
-        """Read the rest of the stream and return the audio with its timings.
+        """Read the whole stream and return the complete audio with its timings.
+
+        Call this instead of iterating, not after it. Events that were already
+        yielded are not kept, so the complete audio can no longer be returned
+        once iteration has started; in that case use the audio you received
+        and read `segments` when the stream ends.
 
         Returns:
             TTSTimestampResult with the complete audio and final timings
+
+        Raises:
+            RuntimeError: If iteration has already started
         """
+        if self._started:
+            raise RuntimeError(
+                "collect() must be called before iterating: events already "
+                "yielded are not kept, so the complete audio is no longer "
+                "available. Join event.audio yourself and read stream.segments."
+            )
         try:
             audio = b"".join(event.audio for event in self)
             return TTSTimestampResult(
@@ -346,8 +362,8 @@ class AsyncTTSTimestampStream:
 
     Iterating yields `TTSTimestampEvent` objects as the server produces them.
     While you iterate, `segments` holds the timings received so far, measured
-    from the start of the complete audio. `collect()` reads the rest of the
-    stream and returns the complete audio with its final timings.
+    from the start of the complete audio. Alternatively, call `collect()`
+    instead of iterating to get the complete audio with its final timings.
 
     Examples:
         ```python
@@ -384,11 +400,13 @@ class AsyncTTSTimestampStream:
         self._on_close = on_close
         self._closed = False
         self._timeline = _Timeline()
+        self._started = False
 
     def __aiter__(self) -> "AsyncTTSTimestampStream":
         return self
 
     async def __anext__(self) -> TTSTimestampEvent:
+        self._started = True
         event = await self._iter.__anext__()
         self._timeline.add(event)
         return event
@@ -426,11 +444,25 @@ class AsyncTTSTimestampStream:
         await self.aclose()
 
     async def collect(self) -> TTSTimestampResult:
-        """Read the rest of the stream and return the audio with its timings.
+        """Read the whole stream and return the complete audio with its timings.
+
+        Call this instead of iterating, not after it. Events that were already
+        yielded are not kept, so the complete audio can no longer be returned
+        once iteration has started; in that case use the audio you received
+        and read `segments` when the stream ends.
 
         Returns:
             TTSTimestampResult with the complete audio and final timings
+
+        Raises:
+            RuntimeError: If iteration has already started
         """
+        if self._started:
+            raise RuntimeError(
+                "collect() must be called before iterating: events already "
+                "yielded are not kept, so the complete audio is no longer "
+                "available. Join event.audio yourself and read stream.segments."
+            )
         try:
             chunks = []
             async for event in self:

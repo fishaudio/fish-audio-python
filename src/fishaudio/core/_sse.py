@@ -14,25 +14,34 @@ class SSEDecoder:
     """Incrementally decode a Server-Sent Events byte stream.
 
     Feed raw response bytes with `feed()`; each call returns the events that
-    were completed by those bytes. Lines are split on LF or CRLF only, so
-    payloads that contain other Unicode line separators stay intact. An event
-    left unterminated when the stream ends is dropped, as the SSE
-    specification requires.
+    were completed by those bytes. Lines end with CRLF, LF or CR, the three
+    endings the SSE specification allows; other Unicode line separators stay
+    inside the payload. An event left unterminated when the stream ends is
+    dropped, as the specification requires.
     """
 
     def __init__(self) -> None:
         self._buffer = b""
+        self._skip_lf = False
         self._event = ""
         self._data: list[str] = []
 
     def feed(self, chunk: bytes) -> list[ServerSentEvent]:
         """Add bytes from the stream and return the events they complete."""
-        self._buffer += chunk
-        *lines, self._buffer = self._buffer.split(b"\n")
+        if not chunk:
+            return []
+        # A CR ends its line at once, so a CR-only stream is never held back.
+        # If the previous chunk ended with CR, a leading LF here is the second
+        # half of a CRLF pair and not another line ending.
+        if self._skip_lf and chunk.startswith(b"\n"):
+            chunk = chunk[1:]
+        self._skip_lf = chunk.endswith(b"\r")
+
+        chunk = chunk.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        *lines, self._buffer = (self._buffer + chunk).split(b"\n")
 
         events = []
-        for raw in lines:
-            line = raw[:-1] if raw.endswith(b"\r") else raw
+        for line in lines:
             if not line:
                 if self._data:
                     events.append(
