@@ -83,6 +83,24 @@ BODY = [_sse(p) for p in PAYLOADS]
 FINAL = [("Hello", 0.0, 0.4), ("world", 0.5, 1.0), ("你", 1.25, 1.5), ("好", 1.5, 1.75)]
 
 
+# What the live API sends when the text has nothing to align (for example
+# "[sigh]" or punctuation only): audio, and `alignment: null` on every event.
+NO_ALIGNMENT_BODY = [
+    _sse(_payload(audio, content="[sigh]")) for audio in (b"aa", b"bb", b"cc")
+]
+_WORLD = {"segments": [_seg("world", 0.0, 0.5)], "audio_duration": 0.75}
+# Chunk 0 never gets timings, chunk 1 does.
+FIRST_CHUNK_UNALIGNED_BODY = [
+    _sse(_payload(b"aa", content="...")),
+    _sse(_payload(b"bb", seq=1, offset=1.5, content="world", alignment=_WORLD)),
+]
+# Chunk 0 gets timings, the last chunk never does.
+LAST_CHUNK_UNALIGNED_BODY = [
+    _sse(_payload(b"aa", content="world", alignment=_WORLD)),
+    _sse(_payload(b"bb", seq=1, offset=0.75, content="[sigh]")),
+]
+
+
 def _timings(segments):
     return [(s.text, s.start, s.end) for s in segments]
 
@@ -260,6 +278,38 @@ class TestSyncTimestamps:
         assert result.audio == b"aabbccdd"
         assert _timings(result.segments) == FINAL
 
+    def test_audio_without_alignment_has_no_duration(self):
+        tts = _sync_tts(_ok(_SyncBody(NO_ALIGNMENT_BODY)))
+        result = tts.stream_with_timestamps(text="[sigh]").collect()
+        assert result.audio == b"aabbcc"
+        assert result.segments == []
+        assert result.duration is None
+
+        tts = _sync_tts(_ok(_SyncBody(NO_ALIGNMENT_BODY)))
+        assert tts.convert_with_timestamps(text="[sigh]") == result
+
+    def test_streaming_audio_without_alignment(self):
+        tts = _sync_tts(_ok(_SyncBody(NO_ALIGNMENT_BODY)))
+        with tts.stream_with_timestamps(text="[sigh]") as stream:
+            events = list(stream)
+            assert stream.segments == []
+        assert [e.audio for e in events] == [b"aa", b"bb", b"cc"]
+        assert all(e.alignment is None and e.segments == [] for e in events)
+
+    def test_chunk_without_alignment_does_not_shift_later_chunks(self):
+        tts = _sync_tts(_ok(_SyncBody(FIRST_CHUNK_UNALIGNED_BODY)))
+        result = tts.convert_with_timestamps(text="... world")
+        assert result.audio == b"aabb"
+        assert _timings(result.segments) == [("world", 1.5, 2.0)]
+        assert result.duration == 2.25
+
+    def test_last_chunk_without_alignment_has_no_duration(self):
+        tts = _sync_tts(_ok(_SyncBody(LAST_CHUNK_UNALIGNED_BODY)))
+        result = tts.convert_with_timestamps(text="world [sigh]")
+        assert result.audio == b"aabb"
+        assert _timings(result.segments) == [("world", 0.0, 0.5)]
+        assert result.duration is None
+
     def test_collect_after_iteration_started_is_refused(self):
         body = _SyncBody(BODY)
         stream = _sync_tts(_ok(body)).stream_with_timestamps(text="Hi")
@@ -389,6 +439,37 @@ class TestAsyncTimestamps:
         tts = _async_tts(_ok(_AsyncBody(BODY)))
         converted = await tts.convert_with_timestamps(text="Hi")
         assert converted == result
+
+    async def test_audio_without_alignment_has_no_duration(self):
+        tts = _async_tts(_ok(_AsyncBody(NO_ALIGNMENT_BODY)))
+        stream = await tts.stream_with_timestamps(text="[sigh]")
+        result = await stream.collect()
+        assert result.audio == b"aabbcc"
+        assert result.segments == []
+        assert result.duration is None
+
+        tts = _async_tts(_ok(_AsyncBody(NO_ALIGNMENT_BODY)))
+        assert await tts.convert_with_timestamps(text="[sigh]") == result
+
+    async def test_streaming_audio_without_alignment(self):
+        tts = _async_tts(_ok(_AsyncBody(NO_ALIGNMENT_BODY)))
+        async with await tts.stream_with_timestamps(text="[sigh]") as stream:
+            events = [event async for event in stream]
+            assert stream.segments == []
+        assert [e.audio for e in events] == [b"aa", b"bb", b"cc"]
+        assert all(e.alignment is None and e.segments == [] for e in events)
+
+    async def test_chunk_without_alignment_does_not_shift_later_chunks(self):
+        tts = _async_tts(_ok(_AsyncBody(FIRST_CHUNK_UNALIGNED_BODY)))
+        result = await tts.convert_with_timestamps(text="... world")
+        assert _timings(result.segments) == [("world", 1.5, 2.0)]
+        assert result.duration == 2.25
+
+    async def test_last_chunk_without_alignment_has_no_duration(self):
+        tts = _async_tts(_ok(_AsyncBody(LAST_CHUNK_UNALIGNED_BODY)))
+        result = await tts.convert_with_timestamps(text="world [sigh]")
+        assert _timings(result.segments) == [("world", 0.0, 0.5)]
+        assert result.duration is None
 
     async def test_collect_after_iteration_started_is_refused(self):
         body = _AsyncBody(BODY)

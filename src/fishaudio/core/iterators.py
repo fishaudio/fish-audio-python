@@ -210,8 +210,10 @@ class _Timeline:
 
     def __init__(self) -> None:
         self._chunks: dict[int, tuple[float, TTSAlignment]] = {}
+        self._last_seq = -1
 
     def add(self, event: TTSTimestampEvent) -> None:
+        self._last_seq = max(self._last_seq, event.chunk_seq)
         if event.alignment is not None:
             self._chunks[event.chunk_seq] = (
                 event.chunk_audio_offset_sec,
@@ -231,14 +233,18 @@ class _Timeline:
         ]
 
     @property
-    def duration(self) -> float:
-        return max(
-            (
-                offset + alignment.audio_duration
-                for offset, alignment in self._chunks.values()
-            ),
-            default=0.0,
-        )
+    def duration(self) -> Optional[float]:
+        """End of the last text chunk, or None when the API did not report it.
+
+        The API reports audio length only inside timing snapshots. Without a
+        snapshot for the last chunk, the end of the audio is unknown: earlier
+        chunks would give a length that is too short, and no chunk gives none.
+        """
+        last = self._chunks.get(self._last_seq)
+        if last is None:
+            return None
+        offset, alignment = last
+        return offset + alignment.audio_duration
 
 
 class TTSTimestampStream:
@@ -301,6 +307,10 @@ class TTSTimestampStream:
         Times are in seconds from the start of the complete audio. Entries near
         the end can still be corrected by later events, so read this again
         after each event instead of appending to an earlier copy.
+
+        Empty until the first timings arrive, and it stays empty when the API
+        has no timings for the text (for example text without words). The
+        audio still arrives in full.
         """
         return self._timeline.segments
 
@@ -335,7 +345,9 @@ class TTSTimestampStream:
         and read `segments` when the stream ends.
 
         Returns:
-            TTSTimestampResult with the complete audio and final timings
+            TTSTimestampResult with the complete audio and final timings. When
+            the API has no timings for the text, `segments` is empty and
+            `duration` is None; the audio is still complete.
 
         Raises:
             RuntimeError: If iteration has already started
@@ -418,6 +430,10 @@ class AsyncTTSTimestampStream:
         Times are in seconds from the start of the complete audio. Entries near
         the end can still be corrected by later events, so read this again
         after each event instead of appending to an earlier copy.
+
+        Empty until the first timings arrive, and it stays empty when the API
+        has no timings for the text (for example text without words). The
+        audio still arrives in full.
         """
         return self._timeline.segments
 
@@ -452,7 +468,9 @@ class AsyncTTSTimestampStream:
         and read `segments` when the stream ends.
 
         Returns:
-            TTSTimestampResult with the complete audio and final timings
+            TTSTimestampResult with the complete audio and final timings. When
+            the API has no timings for the text, `segments` is empty and
+            `duration` is None; the audio is still complete.
 
         Raises:
             RuntimeError: If iteration has already started

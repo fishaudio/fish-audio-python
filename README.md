@@ -174,6 +174,8 @@ with client.tts.stream_with_timestamps(text="Long content...", format="opus") as
         update_captions(stream.segments)  # timings so far, in seconds from the start
 ```
 
+Text without words (only punctuation, or a sound tag such as `[sigh]`) still produces audio, but the API has no timings for it: `segments` is then empty and `result.duration` is `None`.
+
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/text-to-speech)
 
 ### Speech-to-Text

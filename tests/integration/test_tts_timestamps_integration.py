@@ -11,6 +11,7 @@ WORDS = ["Hello", "Welcome", "to", "Fish", "Audio"]
 def _check(result):
     """Timings cover the spoken words, in order, inside the decoded audio."""
     info = sf.info(io.BytesIO(result.audio))
+    assert result.duration is not None
     assert abs(info.duration - result.duration) < 0.1
     assert [s.text for s in result.segments] == WORDS
     starts = [s.start for s in result.segments]

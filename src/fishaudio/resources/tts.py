@@ -405,7 +405,9 @@ class TTSClient:
 
         Returns:
             TTSTimestampResult with the complete audio, the timing of each word
-            in seconds from the start of the audio, and the audio duration
+            in seconds from the start of the audio, and the audio duration.
+            When the API has no timings for the text (for example text without
+            words), `segments` is empty and `duration` is None.
 
         Example:
             ```python
@@ -869,7 +871,9 @@ class AsyncTTSClient:
 
         Returns:
             TTSTimestampResult with the complete audio, the timing of each word
-            in seconds from the start of the audio, and the audio duration
+            in seconds from the start of the audio, and the audio duration.
+            When the API has no timings for the text (for example text without
+            words), `segments` is empty and `duration` is None.
 
         Example:
             ```python

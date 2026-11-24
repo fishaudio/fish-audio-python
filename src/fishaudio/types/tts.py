@@ -258,7 +258,7 @@ class TTSTimestampEvent(BaseModel):
         content: Text of the chunk that `alignment` describes. Long input is
             split into several chunks.
         alignment: Newest timing snapshot for chunk `chunk_seq`, or None when
-            there is nothing new yet
+            there is none yet or the API cannot time this text
         chunk_seq: Index of the text chunk that `content` and `alignment` describe
         chunk_audio_offset_sec: Where that chunk starts in the complete audio,
             in seconds
@@ -291,13 +291,23 @@ class TTSTimestampEvent(BaseModel):
 class TTSTimestampResult(BaseModel):
     """Complete audio together with the timing of its text.
 
+    The API cannot always time the text, for example when it contains no words
+    (only punctuation or a sound tag such as "[sigh]"). The audio is complete
+    in that case too, but `segments` is empty and `duration` is None. Parts of
+    a long text can also be missing from `segments` for the same reason.
+
     Attributes:
         audio: Complete audio as bytes
         segments: Timing entries (usually words) in speaking order, with times
-            in seconds from the start of `audio`
-        duration: Audio length in seconds as reported by the API
+            in seconds from the start of `audio`. Empty when the API returned
+            no timings.
+        duration: Length of `audio` in seconds as reported by the API, or None
+            when the API did not report it. The API reports it together with
+            the timings, so it is None when the end of the audio has no
+            timings. It is never measured from `audio`; decode the audio if you
+            need its length in that case.
     """
 
     audio: bytes
     segments: list[TTSTimestampSegment]
-    duration: float
+    duration: Optional[float] = None
