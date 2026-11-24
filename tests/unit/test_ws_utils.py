@@ -1,5 +1,6 @@
 """Tests for the sync WebSocket reader-draining helper."""
 
+import queue
 import socket
 import threading
 from unittest.mock import Mock, patch
@@ -66,6 +67,32 @@ class TestDrainReader:
         thread.is_alive.return_value = False
         drain_reader(_make_ws(sock, thread))
         thread.join.assert_called_once_with(timeout=0.02)
+
+    def test_releases_keepalive_thread_blocked_on_full_queue_after_reader_exited(
+        self,
+    ):
+        # httpx-ws's keepalive thread closes the transport on a ping timeout and
+        # then puts an error into the event queue. With the queue full and the
+        # reader already gone, nothing else would ever make room for it, and
+        # httpx-ws joins that thread without a timeout.
+        events = queue.Queue(2)
+        events.put("unread 1")
+        events.put("unread 2")
+        reader = threading.Thread(target=lambda: None)
+        reader.start()
+        reader.join()
+        keepalive = threading.Thread(
+            target=events.put, args=(httpx_ws.WebSocketNetworkError(),), daemon=True
+        )
+        keepalive.start()
+        ws = _make_ws(Mock(), reader)
+        ws._events = events
+        ws._background_keepalive_ping_task = keepalive
+
+        drain_reader(ws)
+
+        keepalive.join(timeout=1)
+        assert not keepalive.is_alive()
 
     def test_tolerates_missing_socket_and_thread(self):
         ws = Mock()

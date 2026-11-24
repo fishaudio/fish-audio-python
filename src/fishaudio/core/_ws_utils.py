@@ -59,20 +59,30 @@ def drain_reader(ws: Any) -> None:
             with contextlib.suppress(OSError):
                 sock.shutdown(socket.SHUT_RDWR)
 
+        events = getattr(ws, "_events", None)
+
+        def discard_unread_events() -> None:
+            if isinstance(events, queue.Queue):
+                with contextlib.suppress(queue.Empty):
+                    while True:
+                        events.get_nowait()
+
         thread = getattr(ws, "_background_receive_task", None)
         if thread is not None:
             # The reader can also be blocked putting an event into httpx-ws's
             # bounded queue (the consumer stopped reading). Nothing will read
             # those events any more, so discard them until the thread exits;
             # httpx-ws's own untimed join in __exit__ would hang otherwise.
-            events = getattr(ws, "_events", None)
             deadline = time.monotonic() + 5
             thread.join(timeout=0.02)
             while thread.is_alive() is True and time.monotonic() < deadline:
-                if isinstance(events, queue.Queue):
-                    with contextlib.suppress(queue.Empty):
-                        while True:
-                            events.get_nowait()
+                discard_unread_events()
                 thread.join(timeout=0.02)
+
+        # The keepalive thread writes to the same queue: after a ping timeout it
+        # closes the transport and puts an error. With the queue still full and
+        # the reader gone it would block there, and httpx-ws joins it without a
+        # timeout too. Make room once more now that the reader adds nothing.
+        discard_unread_events()
     except Exception:
         logger.debug("drain_reader failed; falling back to plain close", exc_info=True)
