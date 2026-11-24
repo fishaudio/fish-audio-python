@@ -18,8 +18,12 @@ from .tts import (
     ReferenceAudio,
     StartEvent,
     TextEvent,
+    TTSAlignment,
     TTSConfig,
     TTSRequest,
+    TTSTimestampEvent,
+    TTSTimestampResult,
+    TTSTimestampSegment,
 )
 from .voices import Author, Sample, Voice
 
@@ -46,8 +50,12 @@ __all__ = [
     "ReferenceAudio",
     "StartEvent",
     "TextEvent",
+    "TTSAlignment",
     "TTSConfig",
     "TTSRequest",
+    "TTSTimestampEvent",
+    "TTSTimestampResult",
+    "TTSTimestampSegment",
     # Voice types
     "Author",
     "Sample",
