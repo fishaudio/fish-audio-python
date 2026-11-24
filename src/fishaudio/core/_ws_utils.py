@@ -6,12 +6,22 @@ import contextlib
 import logging
 import queue
 import socket
+import threading
 import time
 from typing import Any
 
 import wsproto.events
 
 logger = logging.getLogger(__name__)
+
+# How long a close frame may take to be written before the socket is shut down
+# without it.
+_CLOSE_FRAME_SECONDS = 0.5
+
+
+def _send_close_frame(ws: Any) -> None:
+    with contextlib.suppress(Exception):
+        ws.send(wsproto.events.CloseConnection(1000))
 
 
 def _socket(ws: Any) -> Any:
@@ -58,7 +68,8 @@ def drain_reader(ws: Any) -> None:
     reader with ``EBADF`` on ``close()``, so it is unaffected.
 
     The fix is to end the in-flight read *before* the fd is freed: send the close
-    frame (so the server still sees a clean 1000 close rather than 1006), then
+    frame (so the server still sees a clean 1000 close rather than 1006; a peer
+    that has stopped reading does not get one, see below), then
     ``shutdown(SHUT_RDWR)`` the socket, which wakes the blocked reader with EOF, and
     join the reader thread. The later ``close()`` sees ``LOCAL_CLOSING`` and skips
     sending a second frame.
@@ -72,12 +83,23 @@ def drain_reader(ws: Any) -> None:
         sock = _socket(ws)
 
         # Moves the wsproto state to LOCAL_CLOSING; later close() calls skip the frame.
-        with contextlib.suppress(Exception):
-            ws.send(wsproto.events.CloseConnection(1000))
+        # The frame is a socket write, and httpx-ws writes without a timeout: it
+        # does not finish while the peer is not reading and the send buffer is
+        # full. So it is sent from a helper thread and given a deadline. The
+        # shutdown below makes a write that is still blocked fail.
+        closer = threading.Thread(
+            target=_send_close_frame,
+            args=(ws,),
+            name="fishaudio-ws-close-frame",
+            daemon=True,
+        )
+        closer.start()
+        closer.join(timeout=_CLOSE_FRAME_SECONDS)
 
         if sock is not None:
             with contextlib.suppress(OSError):
                 sock.shutdown(socket.SHUT_RDWR)
+        closer.join(timeout=_CLOSE_FRAME_SECONDS)
 
         events = getattr(ws, "_events", None)
 

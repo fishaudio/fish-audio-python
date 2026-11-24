@@ -148,6 +148,37 @@ class TestDrainReaderRealSession:
             server_sock.close()
             client_sock.close()
 
+    def test_does_not_wait_for_a_close_frame_the_peer_is_not_reading(self):
+        # No write is pending, but the send buffer is full: the last write just
+        # fitted and the peer has stopped reading. The close frame is a write
+        # too, and httpx-ws sends it without a timeout.
+        client_sock, server_sock = socket.socketpair()
+        try:
+            # Filled before the session starts: its reader thread sets the
+            # socket back to blocking every time it begins a read.
+            client_sock.setblocking(False)
+            with pytest.raises(BlockingIOError):
+                while True:
+                    client_sock.send(b"\x00" * 65536)
+            client_sock.setblocking(True)
+            ws = httpx_ws.WebSocketSession(
+                SyncStream(client_sock), keepalive_ping_interval_seconds=None
+            )
+            with ws:
+                draining = threading.Thread(target=drain_reader, args=(ws,))
+                draining.daemon = True
+                draining.start()
+                draining.join(3)
+                stuck = draining.is_alive()
+                if stuck:  # let the write through so the test can end
+                    server_sock.close()
+                    draining.join(3)
+                assert not stuck, "drain_reader is stuck behind the close frame"
+                assert not ws._background_receive_task.is_alive()
+        finally:
+            server_sock.close()
+            client_sock.close()
+
 
 class TestDrainReaderIsCalledFromSyncPaths:
     @patch("fishaudio.resources.tts.drain_reader")
