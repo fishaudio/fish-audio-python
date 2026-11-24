@@ -602,15 +602,30 @@ class TestSyncSession:
             assert time.monotonic() - started < 1.0
             server.stop()
 
-    def test_audio_failure_is_raised_when_the_server_closes_normally(self):
+    def test_audio_failure_is_raised_when_the_server_closes_normally(self, monkeypatch):
+        # The server must close only after the SDK has recorded the failure:
+        # receiving the chunk does not prove that, so wait for the sender to end.
+        sender_ended = threading.Event()
+        send_audio = asr_realtime._send_audio
+
+        def send_audio_then_signal(*args):
+            try:
+                send_audio(*args)
+            finally:
+                sender_ended.set()
+
+        monkeypatch.setattr(asr_realtime, "_send_audio", send_audio_then_signal)
+
         def audio():
             yield CHUNK
+            time.sleep(0.05)  # the failure comes well after the chunk was sent
             raise RuntimeError("microphone unplugged")
 
         def script(conn):
             conn.recv()
             conn.send(SESSION_STARTED)
             conn.recv()  # the one audio chunk
+            assert sender_ended.wait(5)
             conn.close(1000, "bye")
 
         with (
@@ -1072,15 +1087,32 @@ class TestAsyncSession:
             assert time.monotonic() - started < 1.0
             await astop(server)
 
-    async def test_audio_failure_is_raised_when_the_server_closes_normally(self):
+    async def test_audio_failure_is_raised_when_the_server_closes_normally(
+        self, monkeypatch
+    ):
+        # As in the sync test: close only once the sender task has failed. The
+        # task is done in the same event-loop step that sets the flag.
+        sender_ended = threading.Event()
+        asend_audio = asr_realtime._asend_audio
+
+        async def asend_audio_then_signal(*args):
+            try:
+                await asend_audio(*args)
+            finally:
+                sender_ended.set()
+
+        monkeypatch.setattr(asr_realtime, "_asend_audio", asend_audio_then_signal)
+
         async def audio():
             yield CHUNK
+            await asyncio.sleep(0.05)  # the failure comes well after the chunk
             raise RuntimeError("microphone unplugged")
 
         def script(conn):
             conn.recv()
             conn.send(SESSION_STARTED)
-            conn.recv()
+            conn.recv()  # the one audio chunk
+            assert sender_ended.wait(5)
             conn.close(1000, "bye")
 
         async with aserving(script) as (server, client):
@@ -1088,6 +1120,40 @@ class TestAsyncSession:
                 async for _ in client.asr.stream_websocket(audio()):
                     pass
             await astop(server)
+
+    async def test_audio_stream_cleanup_that_never_finishes_does_not_hang_the_session(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(asr_realtime, "_SENDER_CLEANUP_SECONDS", 0.05)
+        release = asyncio.Event()
+
+        async def audio():
+            try:
+                while True:
+                    yield CHUNK
+                    await asyncio.sleep(0.01)
+            finally:
+                await release.wait()  # cleanup that does not finish
+
+        def script(conn):
+            conn.recv()
+            conn.send(SESSION_STARTED)
+            conn.recv()  # the first audio chunk
+            conn.close(1011, "boom")
+
+        async def read_all(stream):
+            async for _ in stream:
+                pass
+
+        async with aserving(script) as (server, client):
+            stream = client.asr.stream_websocket(audio())
+            with pytest.raises(ASRRealtimeError) as exc_info:
+                await asyncio.wait_for(read_all(stream), 2)
+            assert exc_info.value.close_code == 1011
+            await astop(server)  # the connection was closed, not left open
+
+            release.set()  # let the abandoned cleanup finish
+            await asyncio.sleep(0.05)
 
     async def test_aclose_from_another_task_wakes_a_waiting_consumer(self):
         def script(conn):

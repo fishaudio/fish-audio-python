@@ -72,6 +72,9 @@ _EVENT_QUEUE_SIZE = 256
 _POLL_SECONDS = 0.25
 # Once the sender has failed, only messages that already arrived are read.
 _DRAIN_SECONDS = 0.05
+# How long the async session waits for the cancelled audio sender, and with it
+# the audio stream's own cleanup, before it closes the connection anyway.
+_SENDER_CLEANUP_SECONDS = 1.0
 
 _EVENT_TYPES: dict[str, type[ASRRealtimeEvent]] = {
     "session_started": ASRSessionStartedEvent,
@@ -437,6 +440,11 @@ async def _asend_audio(
                 logger.debug("Closing the audio stream failed", exc_info=True)
 
 
+def _retrieve_exception(task: asyncio.Task[None]) -> None:
+    if not task.cancelled():
+        task.exception()  # mark it as retrieved: nobody else will look
+
+
 def _failure(task: Optional[asyncio.Task[None]]) -> Optional[BaseException]:
     """Why the audio sender stopped early, if it did."""
     if task is None or not task.done():
@@ -529,9 +537,10 @@ async def _run_session(
                 link.close()
                 if sender is not None:
                     sender.cancel()
-                    await asyncio.wait({sender})
-                    if not sender.cancelled():
-                        sender.exception()  # mark a late exception as retrieved
+                    # Bounded: an audio stream whose cleanup never finishes must
+                    # not keep the connection open and the consumer waiting.
+                    await asyncio.wait({sender}, timeout=_SENDER_CLEANUP_SECONDS)
+                    sender.add_done_callback(_retrieve_exception)
     except WebSocketUpgradeError as e:
         error = _upgrade_error(e.response)
         error.__cause__ = e
