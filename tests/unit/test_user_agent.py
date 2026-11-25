@@ -5,7 +5,9 @@ from __future__ import annotations
 import base64
 import contextlib
 import json
+import platform
 import re
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -16,7 +18,14 @@ import pytest
 
 from fishaudio import AsyncFishAudio, FishAudio, __version__
 from fishaudio.core import AsyncClientWrapper, ClientWrapper, RequestOptions
-from fishaudio.core.client_wrapper import USER_AGENT, user_agent
+from fishaudio.core.client_wrapper import (
+    PRODUCT,
+    USER_AGENT,
+    _comment_value,
+    _os_family,
+    build_user_agent,
+    user_agent,
+)
 from fishaudio.exceptions import APIError
 
 from .realtime_server import RealtimeServer
@@ -26,21 +35,76 @@ if TYPE_CHECKING:
 
 # RFC 9110 section 5.6.2: tchar; a product is token ["/" product-version].
 TCHAR = r"[!#$%&'*+\-.^_`|~0-9A-Za-z]"
-PRODUCT = re.compile(rf"^{TCHAR}+/{TCHAR}+$")
+PRODUCT_GRAMMAR = re.compile(rf"^{TCHAR}+/{TCHAR}+$")
+# product, then one or more comments with nothing RFC 9110 ctext excludes.
+USER_AGENT_GRAMMAR = re.compile(rf"^{TCHAR}+/{TCHAR}+( \([^()\\\x00-\x1f\x7f]*\))+$")
 
 
 class TestFormat:
     def test_product_is_fish_audio_python_and_the_version(self):
-        assert f"fish-audio-python/{__version__}" == USER_AGENT
+        assert f"fish-audio-python/{__version__}" == PRODUCT
 
     def test_product_is_valid_rfc_9110_grammar(self):
-        assert PRODUCT.match(USER_AGENT), USER_AGENT
+        assert PRODUCT_GRAMMAR.match(PRODUCT), PRODUCT
+
+    def test_user_agent_names_python_its_version_and_the_os(self):
+        expected_os = _os_family(sys.platform)
+        assert (
+            f"{PRODUCT} (python {platform.python_version()}; {expected_os})"
+        ) == USER_AGENT
+        assert USER_AGENT_GRAMMAR.match(USER_AGENT), USER_AGENT
 
     def test_version_matches_pyproject(self):
         pyproject = (Path(__file__).parents[2] / "pyproject.toml").read_text()
         match = re.search(r'^version = "([^"]+)"', pyproject, re.MULTILINE)
         assert match is not None
         assert __version__ == match.group(1)
+
+
+class TestRuntimeComment:
+    def test_shape(self):
+        assert (
+            build_user_agent("3.12.1", "linux") == f"{PRODUCT} (python 3.12.1; linux)"
+        )
+
+    @pytest.mark.parametrize(
+        ("sys_platform", "expected"),
+        [
+            ("linux", "linux"),
+            ("darwin", "darwin"),
+            ("win32", "windows"),
+            ("cygwin", "windows"),
+            ("freebsd14", "freebsd"),
+            ("Emscripten", "emscripten"),
+            (None, "unknown"),
+            ("", "unknown"),
+        ],
+    )
+    def test_os_family(self, sys_platform, expected):
+        assert _os_family(sys_platform) == expected
+
+    @pytest.mark.parametrize(
+        "hostile",
+        [
+            "3.12.1 (evil)",
+            "3.12.1)",
+            "3.12.1\\(",
+            "3.12.1\r\nX-Injected: 1",
+            "3.12.1\x00",
+            "3.12.1; host=alice-laptop",
+            "3.12.1 /home/alice",
+        ],
+    )
+    def test_odd_values_are_cut_to_their_safe_prefix(self, hostile):
+        assert _comment_value(hostile) == "3.12.1"
+        assert USER_AGENT_GRAMMAR.match(build_user_agent(hostile, hostile))
+
+    def test_nothing_usable_becomes_unknown(self):
+        assert _comment_value("(x)") == "unknown"
+        assert _comment_value("\\") == "unknown"
+        assert _comment_value("") == "unknown"
+        assert _comment_value(None) == "unknown"
+        assert _comment_value("1" * 100) == "1" * 32
 
 
 class TestUserAgentValue:
@@ -309,6 +373,7 @@ class TestLegacy:
         except TypeError:
             pytest.skip("fish_audio_sdk does not import on this Python version")
         expected = f"{USER_AGENT} (legacy)"
+        assert USER_AGENT_GRAMMAR.match(expected)
         session = Session("k")
         assert session._sync_client.headers["user-agent"] == expected
         assert session._async_client.headers["user-agent"] == expected

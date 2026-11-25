@@ -20,8 +20,11 @@ from fishaudio.core.client_wrapper import USER_AGENT
 
 from .exceptions import HttpCodeErr
 
-# The SDK's product with a comment that marks the legacy API (RFC 9110:
-# product *( RWS ( product / comment ) )), so the version stays parseable.
+# The SDK's User-Agent, product and runtime comment, followed by a second
+# comment that marks the legacy API. RFC 9110 allows several comments
+# (product *( RWS ( product / comment ) )), and the runtime comment keeps the
+# same shape as in the new SDK, e.g.
+# fish-audio-python/1.6.0 (python 3.12.1; linux) (legacy).
 LEGACY_USER_AGENT = f"{USER_AGENT} (legacy)"
 
 
