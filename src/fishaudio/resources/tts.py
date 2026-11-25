@@ -1,6 +1,9 @@
 """TTS (Text-to-Speech) namespace client."""
 
 import asyncio
+import base64
+import binascii
+import json
 from collections.abc import AsyncIterable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union
@@ -14,8 +17,15 @@ from fishaudio.core import (
     RequestOptions,
     WebSocketOptions,
 )
+from fishaudio.core._sse import ServerSentEvent, SSEDecoder
 from fishaudio.core._ws_utils import drain_reader
-from fishaudio.core.iterators import AsyncAudioStream, AudioStream
+from fishaudio.core.iterators import (
+    AsyncAudioStream,
+    AsyncTTSTimestampStream,
+    AudioStream,
+    TTSTimestampStream,
+)
+from fishaudio.exceptions import FishAudioError
 from fishaudio.types import (
     AudioFormat,
     CloseEvent,
@@ -28,6 +38,8 @@ from fishaudio.types import (
     TextEvent,
     TTSConfig,
     TTSRequest,
+    TTSTimestampEvent,
+    TTSTimestampResult,
 )
 from fishaudio.types.shared import warn_if_deprecated_model
 
@@ -65,6 +77,56 @@ def _normalize_to_event(
     if isinstance(item, (TextEvent, FlushEvent)):
         return item
     return TextEvent(text=item)
+
+
+_TIMESTAMP_PATH = "/v1/tts/stream/with-timestamp"
+_TIMESTAMP_HEADERS = {
+    "Content-Type": "application/msgpack",
+    "Accept": "text/event-stream",
+}
+
+
+def _build_tts_payload(
+    text: str,
+    config: TTSConfig,
+    *,
+    reference_id: Optional[str],
+    references: Optional[list[ReferenceAudio]],
+    format: Optional[AudioFormat],
+    latency: Optional[LatencyMode],
+    speed: Optional[float],
+) -> bytes:
+    """Build the MessagePack request body; direct parameters override config."""
+    request = _config_to_tts_request(config, text)
+    if reference_id is not None:
+        request.reference_id = reference_id
+    if references is not None:
+        request.references = references
+    if format is not None:
+        request.format = format
+    if latency is not None:
+        request.latency = latency
+    if speed is not None:
+        request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
+    return ormsgpack.packb(request.model_dump(exclude_none=True))
+
+
+def _parse_timestamp_event(sse: ServerSentEvent) -> Optional[TTSTimestampEvent]:
+    """Turn one SSE event into a TTSTimestampEvent; None for events to skip."""
+    if sse.event == "error":
+        raise FishAudioError(f"Text-to-speech stream failed: {sse.data}")
+    if sse.event != "message":
+        return None
+    try:
+        payload = json.loads(sse.data)
+        if not isinstance(payload, dict):
+            raise TypeError("event payload is not a JSON object")
+        payload["audio"] = base64.b64decode(payload.pop("audio_base64"), validate=True)
+        return TTSTimestampEvent.model_validate(payload)
+    except (ValueError, KeyError, TypeError, binascii.Error) as exc:
+        raise FishAudioError(
+            f"Unexpected event in text-to-speech stream: {sse.data[:200]}"
+        ) from exc
 
 
 class TTSClient:
@@ -213,6 +275,155 @@ class TTSClient:
             ```
         """
         return self.stream(
+            text=text,
+            reference_id=reference_id,
+            references=references,
+            format=format,
+            latency=latency,
+            speed=speed,
+            config=config,
+            model=model,
+            request_options=request_options,
+        ).collect()
+
+    def stream_with_timestamps(
+        self,
+        *,
+        text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[list[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
+        config: TTSConfig = TTSConfig(),
+        model: Union[Model, str] = "s2.1-pro",
+        request_options: Optional[RequestOptions] = None,
+    ) -> TTSTimestampStream:
+        """
+        Stream text-to-speech audio together with word-level timestamps.
+
+        Each event carries the next audio bytes and the newest timing snapshot.
+        The returned stream keeps the timings up to date in `stream.segments`.
+
+        Args:
+            text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided).
+                "opus" is the best fit for playing audio while it streams; "wav" and "pcm"
+                are uncompressed, which keeps sample positions exact.
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            config: TTS configuration (audio settings, voice, model parameters)
+            model: TTS model to use
+            request_options: Request-level overrides
+
+        Returns:
+            TTSTimestampStream that yields TTSTimestampEvent objects
+
+        Example:
+            ```python
+            from fishaudio import FishAudio
+
+            client = FishAudio(api_key="...")
+
+            with client.tts.stream_with_timestamps(text="Hello world") as stream:
+                for event in stream:
+                    player.write(event.audio)
+                    show_captions(stream.segments)  # timings received so far
+
+            # Or collect the audio and final timings at once
+            result = client.tts.stream_with_timestamps(text="Hello world").collect()
+            ```
+        """
+        warn_if_deprecated_model(model)
+
+        content = _build_tts_payload(
+            text,
+            config,
+            reference_id=reference_id,
+            references=references,
+            format=format,
+            latency=latency,
+            speed=speed,
+        )
+
+        # Return once headers arrive; events are read lazily as they are produced.
+        response = self._client.request(
+            "POST",
+            _TIMESTAMP_PATH,
+            headers={**_TIMESTAMP_HEADERS, "model": model},
+            content=content,
+            request_options=request_options,
+            stream=True,
+        )
+
+        def _events():
+            decoder = SSEDecoder()
+            try:
+                for chunk in response.iter_bytes():
+                    for sse in decoder.feed(chunk):
+                        event = _parse_timestamp_event(sse)
+                        if event is not None:
+                            yield event
+            finally:
+                response.close()
+
+        return TTSTimestampStream(_events(), on_close=response.close)
+
+    def convert_with_timestamps(
+        self,
+        *,
+        text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[list[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
+        config: TTSConfig = TTSConfig(),
+        model: Union[Model, str] = "s2.1-pro",
+        request_options: Optional[RequestOptions] = None,
+    ) -> TTSTimestampResult:
+        """
+        Convert text to speech and return the audio with word-level timestamps.
+
+        This is a convenience method that reads the whole stream. To use audio
+        and timings while they arrive, use stream_with_timestamps() instead.
+
+        Args:
+            text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided).
+                "opus" is the best fit for playing audio while it streams; "wav" and "pcm"
+                are uncompressed, which keeps sample positions exact.
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            config: TTS configuration (audio settings, voice, model parameters)
+            model: TTS model to use
+            request_options: Request-level overrides
+
+        Returns:
+            TTSTimestampResult with the complete audio, the timing of each word
+            in seconds from the start of the audio, and the audio duration.
+            When the API has no timings for the text (for example text without
+            words), `segments` is empty and `duration` is None.
+
+        Example:
+            ```python
+            from fishaudio import FishAudio
+            from fishaudio.utils import save
+
+            client = FishAudio(api_key="...")
+
+            result = client.tts.convert_with_timestamps(text="Hello world")
+            save(result.audio, "output.mp3")
+
+            for segment in result.segments:
+                print(f"{segment.start:.2f}-{segment.end:.2f} {segment.text}")
+            ```
+        """
+        return self.stream_with_timestamps(
             text=text,
             reference_id=reference_id,
             references=references,
@@ -528,6 +739,157 @@ class AsyncTTSClient:
             ```
         """
         stream = await self.stream(
+            text=text,
+            reference_id=reference_id,
+            references=references,
+            format=format,
+            latency=latency,
+            speed=speed,
+            config=config,
+            model=model,
+            request_options=request_options,
+        )
+        return await stream.collect()
+
+    async def stream_with_timestamps(
+        self,
+        *,
+        text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[list[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
+        config: TTSConfig = TTSConfig(),
+        model: Union[Model, str] = "s2.1-pro",
+        request_options: Optional[RequestOptions] = None,
+    ) -> AsyncTTSTimestampStream:
+        """
+        Stream text-to-speech audio together with word-level timestamps (async).
+
+        Each event carries the next audio bytes and the newest timing snapshot.
+        The returned stream keeps the timings up to date in `stream.segments`.
+
+        Args:
+            text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided).
+                "opus" is the best fit for playing audio while it streams; "wav" and "pcm"
+                are uncompressed, which keeps sample positions exact.
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            config: TTS configuration (audio settings, voice, model parameters)
+            model: TTS model to use
+            request_options: Request-level overrides
+
+        Returns:
+            AsyncTTSTimestampStream that yields TTSTimestampEvent objects
+
+        Example:
+            ```python
+            from fishaudio import AsyncFishAudio
+
+            client = AsyncFishAudio(api_key="...")
+
+            async with await client.tts.stream_with_timestamps(text="Hello world") as stream:
+                async for event in stream:
+                    await player.write(event.audio)
+                    show_captions(stream.segments)  # timings received so far
+
+            # Or collect the audio and final timings at once
+            stream = await client.tts.stream_with_timestamps(text="Hello world")
+            result = await stream.collect()
+            ```
+        """
+        warn_if_deprecated_model(model)
+
+        content = _build_tts_payload(
+            text,
+            config,
+            reference_id=reference_id,
+            references=references,
+            format=format,
+            latency=latency,
+            speed=speed,
+        )
+
+        # Return once headers arrive; events are read lazily as they are produced.
+        response = await self._client.request(
+            "POST",
+            _TIMESTAMP_PATH,
+            headers={**_TIMESTAMP_HEADERS, "model": model},
+            content=content,
+            request_options=request_options,
+            stream=True,
+        )
+
+        async def _events():
+            decoder = SSEDecoder()
+            try:
+                async for chunk in response.aiter_bytes():
+                    for sse in decoder.feed(chunk):
+                        event = _parse_timestamp_event(sse)
+                        if event is not None:
+                            yield event
+            finally:
+                await response.aclose()
+
+        return AsyncTTSTimestampStream(_events(), on_close=response.aclose)
+
+    async def convert_with_timestamps(
+        self,
+        *,
+        text: str,
+        reference_id: Optional[str] = None,
+        references: Optional[list[ReferenceAudio]] = None,
+        format: Optional[AudioFormat] = None,
+        latency: Optional[LatencyMode] = None,
+        speed: Optional[float] = None,
+        config: TTSConfig = TTSConfig(),
+        model: Union[Model, str] = "s2.1-pro",
+        request_options: Optional[RequestOptions] = None,
+    ) -> TTSTimestampResult:
+        """
+        Convert text to speech and return the audio with word-level timestamps (async).
+
+        This is a convenience method that reads the whole stream. To use audio
+        and timings while they arrive, use stream_with_timestamps() instead.
+
+        Args:
+            text: Text to synthesize
+            reference_id: Voice reference ID (overrides config.reference_id if provided)
+            references: Reference audio samples (overrides config.references if provided)
+            format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided).
+                "opus" is the best fit for playing audio while it streams; "wav" and "pcm"
+                are uncompressed, which keeps sample positions exact.
+            latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
+            speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            config: TTS configuration (audio settings, voice, model parameters)
+            model: TTS model to use
+            request_options: Request-level overrides
+
+        Returns:
+            TTSTimestampResult with the complete audio, the timing of each word
+            in seconds from the start of the audio, and the audio duration.
+            When the API has no timings for the text (for example text without
+            words), `segments` is empty and `duration` is None.
+
+        Example:
+            ```python
+            from fishaudio import AsyncFishAudio
+            from fishaudio.utils import save
+
+            client = AsyncFishAudio(api_key="...")
+
+            result = await client.tts.convert_with_timestamps(text="Hello world")
+            save(result.audio, "output.mp3")
+
+            for segment in result.segments:
+                print(f"{segment.start:.2f}-{segment.end:.2f} {segment.text}")
+            ```
+        """
+        stream = await self.stream_with_timestamps(
             text=text,
             reference_id=reference_id,
             references=references,

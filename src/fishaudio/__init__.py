@@ -28,7 +28,12 @@ Example:
 
 from ._version import __version__
 from .client import AsyncFishAudio, FishAudio
-from .core.iterators import AsyncAudioStream, AudioStream
+from .core.iterators import (
+    AsyncAudioStream,
+    AsyncTTSTimestampStream,
+    AudioStream,
+    TTSTimestampStream,
+)
 from .core.websocket_options import WebSocketOptions
 from .exceptions import (
     APIError,
@@ -54,7 +59,11 @@ from .types import (
     FlushEvent,
     ReferenceAudio,
     TextEvent,
+    TTSAlignment,
     TTSConfig,
+    TTSTimestampEvent,
+    TTSTimestampResult,
+    TTSTimestampSegment,
 )
 from .utils import play, save, stream
 
@@ -70,6 +79,8 @@ __all__ = [
     # Audio streams
     "AudioStream",
     "AsyncAudioStream",
+    "TTSTimestampStream",
+    "AsyncTTSTimestampStream",
     # Realtime speech-to-text sessions
     "ASRRealtimeStream",
     "AsyncASRRealtimeStream",
@@ -86,6 +97,10 @@ __all__ = [
     "FlushEvent",
     "ReferenceAudio",
     "TextEvent",
+    "TTSAlignment",
+    "TTSTimestampEvent",
+    "TTSTimestampResult",
+    "TTSTimestampSegment",
     # Exceptions
     "APIError",
     "ASRRealtimeError",
