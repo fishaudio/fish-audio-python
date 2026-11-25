@@ -4,6 +4,7 @@ from typing import get_args
 
 import pytest
 
+from fishaudio.exceptions import APIError
 from fishaudio.types import Prosody, TTSConfig
 from fishaudio.types.shared import AudioFormat, Model
 
@@ -44,6 +45,24 @@ class TestTTSIntegration:
 
         # Write to output directory
         save_audio(audio, "test_prosody.mp3")
+
+    def test_tts_with_language(self, client, save_audio):
+        """Test TTS with a language tag for text normalization."""
+        audio = client.tts.convert(text="La entrada cuesta $300.", language="es-MX")
+        assert len(audio) > 1000
+        save_audio(audio, "test_language_es_mx.mp3")
+
+        config = TTSConfig(language="es")
+        result = client.tts.convert_with_timestamps(
+            text="La entrada cuesta $300.", config=config
+        )
+        assert len(result.audio) > 1000
+
+    def test_tts_with_invalid_language_is_rejected_by_api(self, client):
+        """The SDK sends the tag as given; the API rejects an invalid one."""
+        with pytest.raises(APIError) as exc_info:
+            client.tts.convert(text="Hello", language="en US")
+        assert exc_info.value.status == 400
 
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_tts_with_different_models(self, client, save_audio):

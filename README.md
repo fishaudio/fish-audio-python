@@ -129,6 +129,18 @@ audio = client.tts.convert(
 )
 ```
 
+**Language of the text:**
+
+```python
+# "$300" is read as "trescientos pesos" with es-MX, "trescientos dólares" with es
+audio = client.tts.convert(
+    text="La entrada cuesta $300.",
+    language="es-MX",
+)
+```
+
+`language` is a BCP-47 tag such as `en`, `es-MX` or `zh-CN`. It only changes how numbers, dates, units and symbols are spelled out before synthesis (and word-timestamp alignment); it does not change the voice or accent. Without it, the API detects the language of each chunk, which is also the right choice for text that mixes languages. It is accepted by every text-to-speech method and by `TTSConfig`; on `stream_websocket` it applies to the whole session. See [supported normalization languages](https://docs.fish.audio/features/text-to-speech#supported-normalization-languages).
+
 **Reusable configuration:**
 
 ```python
