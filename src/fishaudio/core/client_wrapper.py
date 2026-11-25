@@ -52,7 +52,8 @@ USER_AGENT = f"fish-audio-python/{__version__}"
 """The SDK's product, ``fish-audio-<language>/<version>``: the format every Fish
 Audio SDK sends, so the API can tell which SDK and version made a request."""
 
-_HTTPX_DEFAULT_USER_AGENT = "python-httpx/"
+# What httpx sends when nobody set a User-Agent; only this exact value is ignored.
+_HTTPX_DEFAULT_USER_AGENT = f"python-httpx/{httpx.__version__}"
 
 
 def user_agent(caller: Optional[str] = None) -> str:
@@ -71,19 +72,21 @@ def user_agent(caller: Optional[str] = None) -> str:
 def _caller_user_agent(
     client: Union[httpx.Client, httpx.AsyncClient, None],
 ) -> Optional[str]:
-    """The User-Agent set on a user's own httpx client, unless it is httpx's default."""
+    """The User-Agent on an httpx client, unless it is httpx's unchanged default.
+
+    A customised value that merely starts with httpx's product, such as
+    ``python-httpx/0.28.1 my-app/1.0``, is kept.
+    """
     if client is None:
         return None
     value = client.headers.get("user-agent")
-    if not value or value.startswith(_HTTPX_DEFAULT_USER_AGENT):
+    if not value or value.strip() == _HTTPX_DEFAULT_USER_AGENT:
         return None
     return value
 
 
 class BaseClientWrapper:
     """Base wrapper with shared logic for sync/async clients."""
-
-    _client_user_agent: Optional[str] = None
 
     def __init__(
         self,
@@ -107,7 +110,10 @@ class BaseClientWrapper:
         on a user-supplied httpx client, is appended to the SDK's own.
         """
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        caller = self._client_user_agent
+        # Read from the client on every call, so a User-Agent changed on a
+        # supplied httpx client after construction is used. The SDK's own
+        # client carries USER_AGENT, which user_agent() does not double.
+        caller = _caller_user_agent(getattr(self, "_client", None))
         for name, value in (additional_headers or {}).items():
             if name.lower() == "user-agent":
                 caller = value
@@ -160,7 +166,6 @@ class ClientWrapper(BaseClientWrapper):
 
         if httpx_client is not None:
             self._client = httpx_client
-            self._client_user_agent = _caller_user_agent(httpx_client)
         else:
             self._client = httpx.Client(
                 base_url=base_url,
@@ -251,7 +256,6 @@ class AsyncClientWrapper(BaseClientWrapper):
 
         if httpx_client is not None:
             self._client = httpx_client
-            self._client_user_agent = _caller_user_agent(httpx_client)
         else:
             self._client = httpx.AsyncClient(
                 base_url=base_url,

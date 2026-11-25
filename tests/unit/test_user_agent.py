@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
+import json
 import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,7 +15,7 @@ import httpx
 import pytest
 
 from fishaudio import AsyncFishAudio, FishAudio, __version__
-from fishaudio.core import ClientWrapper, RequestOptions
+from fishaudio.core import AsyncClientWrapper, ClientWrapper, RequestOptions
 from fishaudio.core.client_wrapper import USER_AGENT, user_agent
 from fishaudio.exceptions import APIError
 
@@ -73,6 +75,36 @@ class TestGetHeaders:
         wrapper = ClientWrapper(api_key="k", httpx_client=httpx.Client())
         assert wrapper.get_headers()["User-Agent"] == USER_AGENT
 
+    def test_customised_value_starting_with_httpx_product_is_kept(self):
+        client = httpx.Client(
+            headers={"User-Agent": f"python-httpx/{httpx.__version__} my-app/1.0"}
+        )
+        wrapper = ClientWrapper(api_key="k", httpx_client=client)
+        assert wrapper.get_headers()["User-Agent"] == (
+            f"{USER_AGENT} python-httpx/{httpx.__version__} my-app/1.0"
+        )
+
+    def test_user_agent_changed_on_the_client_after_construction_is_used(self):
+        client = httpx.Client()
+        wrapper = ClientWrapper(api_key="k", httpx_client=client)
+        assert wrapper.get_headers()["User-Agent"] == USER_AGENT
+        client.headers["User-Agent"] = "my-app/2.0"
+        assert wrapper.get_headers()["User-Agent"] == f"{USER_AGENT} my-app/2.0"
+        del client.headers["User-Agent"]
+        assert wrapper.get_headers()["User-Agent"] == USER_AGENT
+
+    async def test_async_wrapper_reads_the_client_user_agent_too(self):
+        client = httpx.AsyncClient()
+        wrapper = AsyncClientWrapper(api_key="k", httpx_client=client)
+        client.headers["User-Agent"] = "my-app/2.0"
+        assert wrapper.get_headers()["User-Agent"] == f"{USER_AGENT} my-app/2.0"
+        await client.aclose()
+
+    def test_sdk_own_client_does_not_double_the_product(self):
+        wrapper = ClientWrapper(api_key="k")
+        assert wrapper.client.headers["User-Agent"] == USER_AGENT
+        assert wrapper.get_headers()["User-Agent"] == USER_AGENT
+
 
 class _Recorder(BaseHTTPRequestHandler):
     """Records each request's User-Agent values and answers with ``status``."""
@@ -86,7 +118,17 @@ class _Recorder(BaseHTTPRequestHandler):
         type(self).seen.append(
             (self.command, self.path, self.headers.get_all("User-Agent") or [])
         )
-        if self.path.startswith("/v1/tts") and self.status == 200:
+        if self.path.startswith("/v1/tts/stream/with-timestamp") and self.status == 200:
+            payload = {
+                "audio_base64": base64.b64encode(b"\x01").decode(),
+                "content": "hi",
+                "alignment": None,
+                "chunk_seq": 0,
+                "chunk_audio_offset_sec": 0.0,
+            }
+            body = f"event: message\r\ndata: {json.dumps(payload)}\r\n\r\n".encode()
+            content_type = "text/event-stream"
+        elif self.path.startswith("/v1/tts") and self.status == 200:
             body, content_type = b"\x01\x02", "audio/mpeg"
         elif self.path.startswith("/model") and self.command == "GET":
             body, content_type = b'{"items": [], "total": 0}', "application/json"
@@ -140,6 +182,26 @@ class TestHTTP:
         assert len(seen) == 4
         for method, path, values in seen:
             assert values == [USER_AGENT], f"{method} {path}"
+
+    def test_timestamps_entry_points_send_it(self):
+        with recording_server() as (url, seen):
+            client = FishAudio(api_key="test-key", base_url=url)
+            client.tts.convert_with_timestamps(text="hi")
+            client.tts.stream_with_timestamps(text="hi").collect()
+            client.close()
+        assert [(m, p, v) for m, p, v in seen] == [
+            ("POST", "/v1/tts/stream/with-timestamp", [USER_AGENT]),
+            ("POST", "/v1/tts/stream/with-timestamp", [USER_AGENT]),
+        ]
+
+    async def test_async_timestamps_entry_points_send_it(self):
+        with recording_server() as (url, seen):
+            client = AsyncFishAudio(api_key="test-key", base_url=url)
+            await client.tts.convert_with_timestamps(text="hi")
+            stream = await client.tts.stream_with_timestamps(text="hi")
+            await stream.collect()
+            await client.close()
+        assert [v for _, _, v in seen] == [[USER_AGENT], [USER_AGENT]]
 
     def test_request_options_user_agent_is_appended(self):
         with recording_server() as (url, seen):
