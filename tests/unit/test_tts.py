@@ -111,6 +111,18 @@ class TestTTSClient:
         call_args = mock_client_wrapper.request.call_args
         assert call_args[1]["headers"]["model"] == "drama-3"
 
+    def test_convert_with_s3_pro(self, tts_client, mock_client_wrapper):
+        """Test the s3-pro model is sent as the model header."""
+        mock_response = Mock()
+        mock_response.iter_bytes.return_value = iter([b"audio"])
+        mock_client_wrapper.request.return_value = mock_response
+
+        audio = tts_client.convert(text="Hello world", model="s3-pro")
+
+        assert audio == b"audio"
+        call_args = mock_client_wrapper.request.call_args
+        assert call_args[1]["headers"]["model"] == "s3-pro"
+
     def test_convert_with_reference_id(self, tts_client, mock_client_wrapper):
         """Test TTS with reference voice ID."""
         mock_response = Mock()
