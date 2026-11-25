@@ -4,6 +4,7 @@ import asyncio
 import base64
 import binascii
 import json
+import threading
 from collections.abc import AsyncIterable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union
@@ -43,6 +44,7 @@ from fishaudio.types import (
 )
 from fishaudio.types.shared import warn_if_deprecated_model
 
+from .asr_realtime import _SENDER_CLEANUP_SECONDS, _retrieve_exception
 from .realtime import aiter_websocket_audio, iter_websocket_audio
 
 
@@ -589,6 +591,7 @@ class TTSClient:
                 headers=self._client.get_headers({"model": model}),
                 **ws_kwargs,
             ) as ws:
+                stopped = threading.Event()
 
                 def sender():
                     ws.send_bytes(
@@ -596,9 +599,12 @@ class TTSClient:
                     )
                     # Normalize strings to TextEvent
                     for item in text_stream:
+                        if stopped.is_set():
+                            return
                         event = _normalize_to_event(item)
                         ws.send_bytes(ormsgpack.packb(event.model_dump()))
-                    ws.send_bytes(ormsgpack.packb(CloseEvent().model_dump()))
+                    if not stopped.is_set():
+                        ws.send_bytes(ormsgpack.packb(CloseEvent().model_dump()))
 
                 sender_future = executor.submit(sender)
 
@@ -608,6 +614,13 @@ class TTSClient:
 
                     sender_future.result()
                 finally:
+                    # If the stream ended early (an error event, a disconnect, or
+                    # the caller stopped reading), stop the sender at its next
+                    # text chunk instead of letting it keep reading text_stream
+                    # and writing to a closed socket. A thread cannot be
+                    # interrupted while text_stream itself blocks.
+                    stopped.set()
+                    sender_future.cancel()
                     # Stop httpx-ws's reader thread before the socket is closed so it
                     # cannot read from a reused fd belonging to the next connection.
                     drain_reader(ws)
@@ -1083,8 +1096,19 @@ class AsyncTTSClient:
 
             sender_task = asyncio.create_task(sender())
 
-            # Process incoming audio messages
-            async for audio_chunk in aiter_websocket_audio(ws):
-                yield audio_chunk
+            try:
+                # Process incoming audio messages
+                async for audio_chunk in aiter_websocket_audio(ws):
+                    yield audio_chunk
 
-            await sender_task
+                await sender_task
+            finally:
+                # If the stream ended early (an error event, a disconnect, or the
+                # caller stopped reading), cancel the sender so it does not keep
+                # reading text_stream or write to the closed socket. Bounded, like
+                # the realtime speech-to-text session, so a text_stream whose
+                # cleanup never finishes cannot hold the connection open.
+                if not sender_task.done():
+                    sender_task.cancel()
+                    await asyncio.wait({sender_task}, timeout=_SENDER_CLEANUP_SECONDS)
+                sender_task.add_done_callback(_retrieve_exception)

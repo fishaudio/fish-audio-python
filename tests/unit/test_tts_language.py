@@ -6,11 +6,15 @@ actually sends. An unset language must not appear on the wire at all, not even
 as nil.
 """
 
+import asyncio
 import contextlib
+import threading
+import time
 
 import httpx
 import ormsgpack
 import pytest
+from httpx_ws import WebSocketSession
 
 from fishaudio import AsyncFishAudio, FishAudio, TTSConfig
 from fishaudio.core import AsyncClientWrapper, ClientWrapper
@@ -228,4 +232,59 @@ class TestWebSocket:
                     _aiter("Hola"), language="en us"
                 ):
                     pass
+            server.stop()
+
+    def test_rejected_start_event_stops_the_sender(self, monkeypatch):
+        """After the error the sender must not read on from text_stream or send more."""
+        attempted = []
+        real_send = WebSocketSession.send_bytes
+
+        def recording_send(self, data):
+            attempted.append(ormsgpack.unpackb(data))
+            return real_send(self, data)
+
+        monkeypatch.setattr(WebSocketSession, "send_bytes", recording_send)
+        gate = threading.Event()
+        pulled_second = threading.Event()
+        resumed = []
+
+        def text_stream():
+            yield "Hola"
+            gate.wait(5)
+            pulled_second.set()
+            yield "late"
+            resumed.append(True)
+            yield "later"
+
+        with serving(rejecting_script) as (server, client):
+            with pytest.raises(WebSocketError):
+                list(client.tts.stream_websocket(text_stream(), language="en us"))
+            gate.set()
+            assert pulled_second.wait(5)
+            time.sleep(0.2)
+            conn = server.stop()
+        assert resumed == []
+        assert [m.get("text") for m in attempted if m["event"] == "text"] == ["Hola"]
+        assert all(m.get("text") not in ("late", "later") for m in conn.received)
+
+    async def test_async_rejected_start_event_cancels_the_sender(self):
+        """After the error the sender task is cancelled, not left pending."""
+        never = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def text_stream():
+            try:
+                yield "Hola"
+                await never.wait()
+                yield "late"
+            finally:
+                cancelled.set()
+
+        async with aserving(rejecting_script) as (server, client):
+            with pytest.raises(WebSocketError):
+                async for _ in client.tts.stream_websocket(
+                    text_stream(), language="en us"
+                ):
+                    pass
+            assert cancelled.is_set()
             server.stop()
