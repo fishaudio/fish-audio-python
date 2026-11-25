@@ -16,7 +16,13 @@ import httpx._client
 import httpx._types
 from typing_extensions import Concatenate, ParamSpec
 
+from fishaudio.core.client_wrapper import USER_AGENT
+
 from .exceptions import HttpCodeErr
+
+# The SDK's product with a comment that marks the legacy API (RFC 9110:
+# product *( RWS ( product / comment ) )), so the version stays parseable.
+LEGACY_USER_AGENT = f"{USER_AGENT} (legacy)"
 
 
 class RemoteCall:
@@ -35,7 +41,7 @@ class RemoteCall:
             base_url=self._base_url,
             headers={
                 "Authorization": f"Bearer {self._apikey}",
-                "User-Agent": "fish-audio/python/legacy",
+                "User-Agent": LEGACY_USER_AGENT,
             },
             timeout=None,
         )
@@ -45,7 +51,7 @@ class RemoteCall:
             base_url=self._base_url,
             headers={
                 "Authorization": f"Bearer {self._apikey}",
-                "User-Agent": "fish-audio/python/legacy",
+                "User-Agent": LEGACY_USER_AGENT,
             },
             timeout=None,
         )

@@ -9,6 +9,7 @@ from httpx_ws import WebSocketDisconnect, aconnect_ws, connect_ws
 from fishaudio.core._ws_utils import drain_reader
 
 from .exceptions import WebSocketErr
+from .io import LEGACY_USER_AGENT
 from .schemas import Backends, CloseEvent, StartEvent, TextEvent, TTSRequest
 
 
@@ -27,7 +28,7 @@ class WebSocketSession:
             base_url=self._base_url,
             headers={
                 "Authorization": f"Bearer {self._apikey}",
-                "User-Agent": "fish-audio/python/legacy",
+                "User-Agent": LEGACY_USER_AGENT,
             },
         )
 
@@ -106,7 +107,7 @@ class AsyncWebSocketSession:
             base_url=self._base_url,
             headers={
                 "Authorization": f"Bearer {self._apikey}",
-                "User-Agent": "fish-audio/python/legacy",
+                "User-Agent": LEGACY_USER_AGENT,
             },
         )
 

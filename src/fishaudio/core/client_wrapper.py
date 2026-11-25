@@ -2,7 +2,7 @@
 
 import os
 from json import JSONDecodeError
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -48,8 +48,42 @@ def _raise_for_status(response: httpx.Response) -> None:
     raise _api_error(status, message, response.text)
 
 
+USER_AGENT = f"fish-audio-python/{__version__}"
+"""The SDK's product, ``fish-audio-<language>/<version>``: the format every Fish
+Audio SDK sends, so the API can tell which SDK and version made a request."""
+
+_HTTPX_DEFAULT_USER_AGENT = "python-httpx/"
+
+
+def user_agent(caller: Optional[str] = None) -> str:
+    """Return the User-Agent to send: the SDK's product, then ``caller`` if set.
+
+    A caller's value is appended rather than allowed to replace the SDK's, so an
+    app can name itself without hiding which SDK made the request. A value that
+    already starts with the SDK's product is not doubled.
+    """
+    value = (caller or "").strip()
+    if value == USER_AGENT or value.startswith(f"{USER_AGENT} "):
+        value = value[len(USER_AGENT) :].strip()
+    return f"{USER_AGENT} {value}" if value else USER_AGENT
+
+
+def _caller_user_agent(
+    client: Union[httpx.Client, httpx.AsyncClient, None],
+) -> Optional[str]:
+    """The User-Agent set on a user's own httpx client, unless it is httpx's default."""
+    if client is None:
+        return None
+    value = client.headers.get("user-agent")
+    if not value or value.startswith(_HTTPX_DEFAULT_USER_AGENT):
+        return None
+    return value
+
+
 class BaseClientWrapper:
     """Base wrapper with shared logic for sync/async clients."""
+
+    _client_user_agent: Optional[str] = None
 
     def __init__(
         self,
@@ -67,13 +101,19 @@ class BaseClientWrapper:
     def get_headers(
         self, additional_headers: Optional[dict[str, str]] = None
     ) -> dict[str, str]:
-        """Build headers including authentication and user agent."""
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "User-Agent": f"fish-audio/python/{__version__}",
-        }
-        if additional_headers:
-            headers.update(additional_headers)
+        """Build headers including authentication and user agent.
+
+        A ``User-Agent`` in ``additional_headers`` (any casing), or else one set
+        on a user-supplied httpx client, is appended to the SDK's own.
+        """
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        caller = self._client_user_agent
+        for name, value in (additional_headers or {}).items():
+            if name.lower() == "user-agent":
+                caller = value
+            else:
+                headers[name] = value
+        headers["User-Agent"] = user_agent(caller)
         return headers
 
     def _prepare_request_kwargs(
@@ -81,9 +121,9 @@ class BaseClientWrapper:
     ) -> None:
         """Prepare request kwargs by merging headers, timeout, and query params."""
         # Merge headers
-        headers = self.get_headers()
-        if request_options and request_options.additional_headers:
-            headers.update(request_options.additional_headers)
+        headers = self.get_headers(
+            request_options.additional_headers if request_options else None
+        )
         # Headers set by the calling method win, whatever the case of the name:
         # {"Model": ...} from request options must not travel next to {"model": ...}.
         explicit = kwargs.get("headers", {})
@@ -120,6 +160,7 @@ class ClientWrapper(BaseClientWrapper):
 
         if httpx_client is not None:
             self._client = httpx_client
+            self._client_user_agent = _caller_user_agent(httpx_client)
         else:
             self._client = httpx.Client(
                 base_url=base_url,
@@ -210,6 +251,7 @@ class AsyncClientWrapper(BaseClientWrapper):
 
         if httpx_client is not None:
             self._client = httpx_client
+            self._client_user_agent = _caller_user_agent(httpx_client)
         else:
             self._client = httpx.AsyncClient(
                 base_url=base_url,
