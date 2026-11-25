@@ -157,12 +157,15 @@ for chunk in client.tts.stream(text="Long content..."):
 audio = client.tts.stream(text="Hello!").collect()
 ```
 
+`s1` and `transcribe-1` are deprecated and will be retired on December 31, 2026. After that date, requests that specify them are served by `s2.1-pro` and `transcribe-1-pro`. The SDK emits a `FutureWarning` the first time a deprecated model is used in a process. See [Model Deprecations](https://docs.fish.audio/developer-guide/models-pricing/deprecations).
+
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/text-to-speech)
 
 ### Speech-to-Text
 
 ```python
-# transcribe-1-pro is the recommended model; without model, the request runs on transcribe-1.
+# transcribe-1-pro is the recommended model; without model, the request runs on transcribe-1,
+# which is deprecated and will be retired on December 31, 2026.
 with open("meeting.wav", "rb") as f:
     result = client.asr.transcribe(audio=f.read(), model="transcribe-1-pro")
 

@@ -23,8 +23,23 @@ from fishaudio.types import (
     ASRTurnDetection,
     TurnDetectionMode,
 )
+from fishaudio.types.shared import warn_if_deprecated_model
 
 from .asr_realtime import REALTIME_PATH, ASRRealtimeStream, AsyncASRRealtimeStream
+
+
+def _requested_model(
+    model: Optional[str], request_options: Optional[RequestOptions]
+) -> Optional[str]:
+    """Return the model the request names: the argument, else a model header."""
+    if model is not None:
+        return model
+    if request_options is None:
+        return None
+    for name, value in request_options.additional_headers.items():
+        if name.lower() == "model":
+            return value
+    return None
 
 
 def _realtime_config(
@@ -85,7 +100,11 @@ class ASRClient:
             model: ASR model, e.g. "transcribe-1-pro" (recommended). Sent as the
                 ``model`` header and takes precedence over one in request_options.
                 If not provided and request_options sets no ``model`` header, the
-                request runs on the API's default model, transcribe-1
+                request runs on the API's default model, transcribe-1.
+                transcribe-1 is deprecated and will be retired on December 31,
+                2026; after that date, the requests it serves, including those
+                with no ``model`` header, are served by transcribe-1-pro.
+                Passing "transcribe-1" emits a FutureWarning once per process.
             request_options: Request-level overrides
 
         Returns:
@@ -107,6 +126,8 @@ class ASRClient:
                 print(f"{segment.start}-{segment.end}: {segment.text}")
             ```
         """
+        warn_if_deprecated_model(_requested_model(model, request_options))
+
         # Build request payload
         payload = {
             "audio": audio,
@@ -272,7 +293,11 @@ class AsyncASRClient:
             model: ASR model, e.g. "transcribe-1-pro" (recommended). Sent as the
                 ``model`` header and takes precedence over one in request_options.
                 If not provided and request_options sets no ``model`` header, the
-                request runs on the API's default model, transcribe-1
+                request runs on the API's default model, transcribe-1.
+                transcribe-1 is deprecated and will be retired on December 31,
+                2026; after that date, the requests it serves, including those
+                with no ``model`` header, are served by transcribe-1-pro.
+                Passing "transcribe-1" emits a FutureWarning once per process.
             request_options: Request-level overrides
 
         Returns:
@@ -294,6 +319,8 @@ class AsyncASRClient:
                 print(f"{segment.start}-{segment.end}: {segment.text}")
             ```
         """
+        warn_if_deprecated_model(_requested_model(model, request_options))
+
         # Build request payload
         payload = {
             "audio": audio,

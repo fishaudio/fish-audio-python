@@ -94,7 +94,7 @@ class TestTTSRealtimeClient:
             assert mock_connect_ws.call_args[0][0] == "/v1/tts/live"
             assert mock_connect_ws.call_args[1]["headers"]["model"] == "s2.1-pro"
 
-    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+    @pytest.mark.filterwarnings("ignore::FutureWarning")
     @patch("fishaudio.resources.tts.connect_ws")
     @patch("fishaudio.resources.tts.ThreadPoolExecutor")
     def test_stream_websocket_with_config(
@@ -428,7 +428,7 @@ class TestAsyncTTSRealtimeClient:
             assert mock_aconnect_ws.call_args[0][0] == "/v1/tts/live"
             assert mock_aconnect_ws.call_args[1]["headers"]["model"] == "s2.1-pro"
 
-    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+    @pytest.mark.filterwarnings("ignore::FutureWarning")
     @pytest.mark.asyncio
     @patch("fishaudio.resources.tts.aconnect_ws")
     async def test_stream_websocket_with_config(
