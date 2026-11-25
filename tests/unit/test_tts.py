@@ -338,10 +338,8 @@ class TestTTSClient:
         # Get iterator
         audio_stream = tts_client.stream(text="Hello")
 
-        # Consume one chunk at a time
-        result = []
-        for chunk in audio_stream:
-            result.append(chunk)
+        # Consume through iteration
+        result = list(audio_stream)
 
         # Empty chunk should be filtered out
         assert result == [b"chunk1", b"chunk2", b"chunk3"]

@@ -139,7 +139,7 @@ class ASRClient:
         drafts: Optional[bool] = None,
         diarize: Optional[bool] = None,
         terms: Optional[list[str]] = None,
-        config: ASRRealtimeConfig = ASRRealtimeConfig(),
+        config: ASRRealtimeConfig = ASRRealtimeConfig(),  # noqa: B008 - copied before use
         model: str = "transcribe-stream-1",
         ws_options: Optional[WebSocketOptions] = None,
     ) -> ASRRealtimeStream:
@@ -326,7 +326,7 @@ class AsyncASRClient:
         drafts: Optional[bool] = None,
         diarize: Optional[bool] = None,
         terms: Optional[list[str]] = None,
-        config: ASRRealtimeConfig = ASRRealtimeConfig(),
+        config: ASRRealtimeConfig = ASRRealtimeConfig(),  # noqa: B008 - copied before use
         model: str = "transcribe-stream-1",
         ws_options: Optional[WebSocketOptions] = None,
     ) -> AsyncASRRealtimeStream:

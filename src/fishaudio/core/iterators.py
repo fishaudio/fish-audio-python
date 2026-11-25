@@ -3,6 +3,8 @@
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from typing import Optional
 
+from typing_extensions import Self
+
 
 class AudioStream:
     """Wrapper for sync audio byte streams with collection utilities.
@@ -69,7 +71,7 @@ class AudioStream:
             if self._on_close is not None:
                 self._on_close()
 
-    def __enter__(self) -> "AudioStream":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -92,10 +94,7 @@ class AudioStream:
             ```
         """
         try:
-            chunks = []
-            for chunk in self._iter:
-                chunks.append(chunk)
-            return b"".join(chunks)
+            return b"".join(self._iter)
         finally:
             self.close()
 
@@ -166,7 +165,7 @@ class AsyncAudioStream:
             if self._on_close is not None:
                 await self._on_close()
 
-    async def __aenter__(self) -> "AsyncAudioStream":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

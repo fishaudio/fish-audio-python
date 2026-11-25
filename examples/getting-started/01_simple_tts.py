@@ -50,7 +50,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Error: {e}")
         print("\nMake sure you have set your API key:")
         print("  export FISH_API_KEY='your_api_key'")

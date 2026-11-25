@@ -41,7 +41,7 @@ def main():
         # Note: Credits are consumed based on usage
         # Check the Fish Audio pricing page for current rates
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"  Error fetching credits: {e}")
 
     # Check prepaid package information
@@ -56,7 +56,7 @@ def main():
         else:
             print("  No active prepaid package")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"  Error fetching package: {e}")
 
     print("\n" + "=" * 60)
@@ -79,7 +79,7 @@ def check_api_setup():
         print(f"  Your current balance: {float(credits.credit):,.2f} credits")
         return True
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print("API setup failed!")
         print(f"  Error: {e}")
         print("\nPlease check:")
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         # print("\n\nRunning quick API setup check...")
         # check_api_setup()
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"\nError: {e}")
         print("\nMake sure you have set your API key:")
         print("  export FISH_API_KEY='your_api_key'")

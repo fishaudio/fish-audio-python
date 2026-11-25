@@ -5,7 +5,7 @@ from .asr import ASRClient, AsyncASRClient
 from .tts import AsyncTTSClient, TTSClient
 from .voices import AsyncVoicesClient, VoicesClient
 
-__all__ = [
+__all__ = [  # noqa: RUF022 - grouped by topic
     # Sync clients
     "AccountClient",
     "ASRClient",

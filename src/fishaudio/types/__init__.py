@@ -55,7 +55,7 @@ from .tts import (
 )
 from .voices import Author, Sample, Voice
 
-__all__ = [
+__all__ = [  # noqa: RUF022 - grouped by topic
     # Account types
     "Credits",
     "Package",

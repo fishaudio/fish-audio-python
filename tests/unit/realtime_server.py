@@ -182,7 +182,7 @@ class RealtimeServer:
             self.connection.wait_gone()
         except ClientGone:
             pass
-        except BaseException as e:
+        except BaseException as e:  # noqa: BLE001 - re-raised by the test
             self.error = e
         finally:
             with contextlib.suppress(OSError):
