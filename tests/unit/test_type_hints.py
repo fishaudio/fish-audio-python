@@ -5,7 +5,12 @@ import typing
 import pytest
 from typing_extensions import Self
 
-from fishaudio.core.iterators import AsyncAudioStream, AudioStream
+from fishaudio.core.iterators import (
+    AsyncAudioStream,
+    AsyncTTSTimestampStream,
+    AudioStream,
+    TTSTimestampStream,
+)
 from fishaudio.resources.asr_realtime import ASRRealtimeStream, AsyncASRRealtimeStream
 
 
@@ -16,6 +21,8 @@ from fishaudio.resources.asr_realtime import ASRRealtimeStream, AsyncASRRealtime
         AsyncAudioStream.__aenter__,
         ASRRealtimeStream.__enter__,
         AsyncASRRealtimeStream.__aenter__,
+        TTSTimestampStream.__enter__,
+        AsyncTTSTimestampStream.__aenter__,
     ],
     ids=lambda method: method.__qualname__,
 )

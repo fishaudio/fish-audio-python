@@ -295,7 +295,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> TTSTimestampStream:
@@ -380,7 +380,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> TTSTimestampResult:
@@ -760,7 +760,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AsyncTTSTimestampStream:
@@ -846,7 +846,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> TTSTimestampResult:

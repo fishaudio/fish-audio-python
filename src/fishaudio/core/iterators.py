@@ -329,7 +329,7 @@ class TTSTimestampStream:
             if self._on_close is not None:
                 self._on_close()
 
-    def __enter__(self) -> "TTSTimestampStream":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -452,7 +452,7 @@ class AsyncTTSTimestampStream:
             if self._on_close is not None:
                 await self._on_close()
 
-    async def __aenter__(self) -> "AsyncTTSTimestampStream":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
