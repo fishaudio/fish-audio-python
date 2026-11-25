@@ -4,8 +4,9 @@ import os
 import platform
 import re
 import sys
+from collections.abc import Iterable, Mapping
 from json import JSONDecodeError
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import httpx
 
@@ -133,6 +134,90 @@ def _caller_user_agent(
     return value
 
 
+HeaderProvider = Callable[[], Optional[Mapping[str, Optional[str]]]]
+"""A function the SDK calls for every outgoing request and WebSocket handshake.
+
+It takes no arguments: read the caller's current state (an OpenTelemetry span,
+a ``contextvars.ContextVar``) inside it. It returns the headers to add, or
+``None`` to add none; a header whose value is ``None`` is skipped. See
+``FishAudio(header_provider=...)``.
+"""
+
+# Headers the SDK sets itself or that the HTTP and WebSocket protocols own. A
+# header provider can never set them, so it cannot replace the API key or the
+# model by accident, e.g. when it copies an inbound request's headers.
+_RESERVED_HEADERS = frozenset(
+    {
+        "authorization",
+        "model",
+        "user-agent",
+        "content-type",
+        "content-length",
+        "host",
+        "connection",
+        "upgrade",
+        "transfer-encoding",
+    }
+)
+
+# RFC 9110 token characters, for header names.
+_HEADER_NAME = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")
+# Control characters other than horizontal tab may not appear in a header value.
+_FORBIDDEN_IN_VALUE = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
+
+
+def _is_reserved(name: str) -> bool:
+    lowered = name.lower()
+    return lowered in _RESERVED_HEADERS or lowered.startswith("sec-websocket-")
+
+
+def _provided_headers(
+    provider: Optional[HeaderProvider], taken: Iterable[str]
+) -> dict[str, str]:
+    """Call ``provider`` and return the headers it may add to a request.
+
+    ``taken`` are the names the request already has (any casing): they win
+    over the provider, as do the reserved names. An exception raised by the
+    provider reaches the caller unchanged, before anything is sent.
+    """
+    if provider is None:
+        return {}
+    result = provider()
+    if result is None:
+        return {}
+    if not isinstance(result, Mapping):
+        raise TypeError(
+            "header_provider must return a mapping of header names to strings or None, "
+            f"not {type(result).__name__}"
+        )
+    taken_names = {name.lower() for name in taken}
+    headers: dict[str, str] = {}
+    for name, value in result.items():
+        if value is None:
+            continue
+        if not isinstance(name, str) or not isinstance(value, str):
+            raise TypeError(
+                "header_provider must return header names and values as str, "
+                f"got {type(name).__name__}: {type(value).__name__}"
+            )
+        if not _HEADER_NAME.fullmatch(name):
+            raise ValueError(
+                f"header_provider returned an invalid header name {name!r}"
+            )
+        if _FORBIDDEN_IN_VALUE.search(value):
+            # The value is not echoed: it may be a credential.
+            raise ValueError(
+                f"header_provider returned an invalid value for header {name!r}"
+            )
+        if _is_reserved(name) or name.lower() in taken_names:
+            continue
+        # One spelling per name: a later one replaces an earlier one.
+        for existing in [n for n in headers if n.lower() == name.lower()]:
+            del headers[existing]
+        headers[name] = value
+    return headers
+
+
 class BaseClientWrapper:
     """Base wrapper with shared logic for sync/async clients."""
 
@@ -141,13 +226,17 @@ class BaseClientWrapper:
         *,
         api_key: Optional[str] = None,
         base_url: str = "https://api.fish.audio",
+        header_provider: Optional[HeaderProvider] = None,
     ):
         self.api_key = api_key or os.getenv("FISH_API_KEY")
         if not self.api_key:
             raise ValueError(
                 "API key must be provided either as argument or via FISH_API_KEY environment variable"
             )
+        if header_provider is not None and not callable(header_provider):
+            raise TypeError("header_provider must be callable")
         self.base_url = base_url
+        self.header_provider = header_provider
 
     def get_headers(
         self, additional_headers: Optional[dict[str, str]] = None
@@ -182,10 +271,23 @@ class BaseClientWrapper:
         # {"Model": ...} from request options must not travel next to {"model": ...}.
         explicit = kwargs.get("headers", {})
         explicit_names = {name.lower() for name in explicit}
-        kwargs["headers"] = {
+        merged = {
             **{k: v for k, v in headers.items() if k.lower() not in explicit_names},
             **explicit,
         }
+        # The header provider runs last, once per request, on the caller's
+        # thread or task, so it sees the caller's context at the moment the
+        # request is sent. Every header set so far, and the headers set on the
+        # httpx client, win over it. (A retry loop added here later must call
+        # this once per attempt.)
+        client = getattr(self, "_client", None)
+        merged.update(
+            _provided_headers(
+                self.header_provider,
+                [*merged, *(client.headers.keys() if client is not None else [])],
+            )
+        )
+        kwargs["headers"] = merged
 
         # Apply timeout override if provided
         if request_options and request_options.timeout is not None:
@@ -198,6 +300,21 @@ class BaseClientWrapper:
                 params.update(request_options.additional_query_params)
                 kwargs["params"] = params
 
+    def websocket_kwargs(
+        self, model: str, request_options: Optional[RequestOptions]
+    ) -> dict[str, Any]:
+        """Headers and query parameters for a WebSocket handshake.
+
+        Call it when the connection is opened, not before, so the header
+        provider sees the caller's context of that moment. Request options
+        apply as on HTTP requests, except ``timeout``: WebSocket timeouts are
+        set with ``WebSocketOptions``.
+        """
+        kwargs: dict[str, Any] = {"headers": {"model": model}}
+        self._prepare_request_kwargs(request_options, kwargs)
+        kwargs.pop("timeout", None)
+        return kwargs
+
 
 class ClientWrapper(BaseClientWrapper):
     """Wrapper for httpx.Client that handles authentication and error handling."""
@@ -209,8 +326,11 @@ class ClientWrapper(BaseClientWrapper):
         base_url: str = "https://api.fish.audio",
         timeout: float = 240.0,
         httpx_client: Optional[httpx.Client] = None,
+        header_provider: Optional[HeaderProvider] = None,
     ):
-        super().__init__(api_key=api_key, base_url=base_url)
+        super().__init__(
+            api_key=api_key, base_url=base_url, header_provider=header_provider
+        )
 
         if httpx_client is not None:
             self._client = httpx_client
@@ -299,8 +419,11 @@ class AsyncClientWrapper(BaseClientWrapper):
         base_url: str = "https://api.fish.audio",
         timeout: float = 240.0,
         httpx_client: Optional[httpx.AsyncClient] = None,
+        header_provider: Optional[HeaderProvider] = None,
     ):
-        super().__init__(api_key=api_key, base_url=base_url)
+        super().__init__(
+            api_key=api_key, base_url=base_url, header_provider=header_provider
+        )
 
         if httpx_client is not None:
             self._client = httpx_client

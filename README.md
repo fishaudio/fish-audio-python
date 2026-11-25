@@ -325,6 +325,84 @@ except FishAudioError as e:
     print(f"API error: {e}")
 ```
 
+## Tracing
+
+Fish Audio continues your distributed trace when a request carries a W3C
+[`traceparent`](https://www.w3.org/TR/trace-context/) header, on HTTP calls and on
+both WebSockets. Pass a `header_provider`: the SDK calls it for every request and
+every WebSocket handshake, right before sending, on the thread (`FishAudio`) or in
+the task (`AsyncFishAudio`) that makes the call. It takes no arguments, so read your
+current span or request inside it, and returns the headers to add, or `None`.
+
+**OpenTelemetry.** If `httpx` is instrumented (`opentelemetry-instrumentation-httpx`,
+or `opentelemetry-instrument`), every SDK request, both WebSockets included, already
+carries `traceparent`: you need nothing here. If it is not:
+
+```python
+from opentelemetry.propagate import inject
+
+def otel_headers():
+    carrier = {}
+    inject(carrier)  # the current span's traceparent (and baggage, if configured)
+    return carrier
+
+client = FishAudio(header_provider=otel_headers)
+```
+
+Using both is harmless: the instrumentation replaces the provider's `traceparent`
+with its own child span's.
+
+**Your own trace IDs.** The API accepts only a valid `traceparent` (version `00`:
+32 hex digits of trace ID, 16 of parent ID, 2 of flags). Convert your IDs; an
+invalid value is ignored by the API, and the request gets a new trace ID.
+
+```python
+import contextvars
+import re
+
+current_request = contextvars.ContextVar("current_request", default=None)  # set by your middleware
+
+def to_traceparent(trace_id: str, span_id: str):
+    trace_id = trace_id.replace("-", "").lower().rjust(32, "0")  # a UUID becomes 32 hex digits
+    span_id = span_id.lower().rjust(16, "0")
+    if not re.fullmatch(r"[0-9a-f]{32}", trace_id) or not re.fullmatch(r"[0-9a-f]{16}", span_id):
+        return None  # not convertible: no header is sent
+    if int(trace_id, 16) == 0 or int(span_id, 16) == 0:
+        return None  # all zeros is invalid
+    return f"00-{trace_id}-{span_id}-01"  # 01: sampled
+
+def my_trace_headers():
+    request = current_request.get()
+    if request is None:
+        return None  # no header is added
+    return {"traceparent": to_traceparent(request.trace_id, request.span_id)}
+
+client = FishAudio(header_provider=my_trace_headers)
+```
+
+**No tracing.** Nothing to do.
+
+For one call, pass headers with `request_options`, on HTTP and WebSocket methods alike.
+They win over the provider:
+
+```python
+from fishaudio import RequestOptions
+
+client.tts.convert(text="Hello", request_options=RequestOptions(additional_headers={"traceparent": tp}))
+client.asr.stream_websocket(audio, request_options=RequestOptions(additional_headers={"traceparent": tp}))
+```
+
+Rules:
+- The provider cannot set `Authorization`, `model`, `User-Agent`, `Content-Type`,
+  `Content-Length`, `Host` or WebSocket handshake headers; those names are ignored.
+  Per-call headers and headers on your own `httpx_client` win over it.
+- An exception it raises fails the call, unchanged, before anything is sent. A result
+  that is not a mapping of `str` to `str` (or `None` values, which are skipped) raises
+  `TypeError`; a value with line breaks raises `ValueError`.
+- It runs once per request, synchronously, so keep it fast and free of I/O. With
+  `AsyncFishAudio` it runs on the event loop.
+- Streams connect when you start iterating them; the provider runs then.
+
 ## Resources
 
 - **Documentation:** [SDK Guide](https://docs.fish.audio/developer-guide/sdk-guide/python/) | [API Reference](https://docs.fish.audio/api-reference/sdk/python/)

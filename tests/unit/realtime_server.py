@@ -48,6 +48,8 @@ class Connection:
         self._pending: deque[dict[str, Any]] = deque()
         self._partial = b""
         self.headers: dict[str, str] = {}
+        # Every handshake header in order, repeated names included.
+        self.header_list: list[tuple[str, str]] = []
         self.path: Optional[str] = None
         self.received: list[dict[str, Any]] = []
         self.close_code: Optional[int] = None
@@ -68,7 +70,10 @@ class Connection:
         for event in self._ws.events():
             if isinstance(event, Request):
                 self.path = event.target
-                self.headers = {k.decode(): v.decode() for k, v in event.extra_headers}
+                self.header_list = [
+                    (k.decode(), v.decode()) for k, v in event.extra_headers
+                ]
+                self.headers = dict(self.header_list)
                 if self._reject_status is not None:
                     self._write(RejectConnection(status_code=self._reject_status))
                     raise ClientGone

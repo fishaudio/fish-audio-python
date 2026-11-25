@@ -23,6 +23,9 @@ def mock_client_wrapper(mock_api_key):
         "User-Agent": "fish-audio-python/test",
         **(additional or {}),
     }
+    wrapper.websocket_kwargs = lambda model, request_options=None: {
+        "headers": wrapper.get_headers({"model": model})
+    }
     return wrapper
 
 
@@ -38,6 +41,9 @@ def async_mock_client_wrapper(mock_api_key):
         "Authorization": f"Bearer {mock_api_key}",
         "User-Agent": "fish-audio-python/test",
         **(additional or {}),
+    }
+    wrapper.websocket_kwargs = lambda model, request_options=None: {
+        "headers": wrapper.get_headers({"model": model})
     }
     return wrapper
 

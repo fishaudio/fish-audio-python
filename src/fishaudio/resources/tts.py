@@ -448,6 +448,7 @@ class TTSClient:
         model: Union[Model, str] = "s2.1-pro",
         max_workers: int = 10,
         ws_options: Optional[WebSocketOptions] = None,
+        request_options: Optional[RequestOptions] = None,
     ) -> Iterator[bytes]:
         """
         Stream text and receive audio in real-time via WebSocket.
@@ -467,6 +468,9 @@ class TTSClient:
             ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
                 Useful for long-running generations that may exceed default timeout values.
                 See WebSocketOptions class for available parameters.
+            request_options: Request-level overrides for the handshake, as on HTTP
+                calls: ``additional_headers`` and ``additional_query_params`` (``timeout``
+                does not apply here; use ``ws_options``)
 
         Returns:
             Iterator of audio bytes
@@ -560,10 +564,12 @@ class TTSClient:
 
         try:
             ws: WebSocketSession
+            # Built here, when iteration opens the connection, so the header
+            # provider sees the caller's context of that moment.
             with connect_ws(
                 "/v1/tts/live",
                 client=self._client.client,
-                headers=self._client.get_headers({"model": model}),
+                **self._client.websocket_kwargs(model, request_options),
                 **ws_kwargs,
             ) as ws:
 
@@ -914,6 +920,7 @@ class AsyncTTSClient:
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         ws_options: Optional[WebSocketOptions] = None,
+        request_options: Optional[RequestOptions] = None,
     ):
         """
         Stream text and receive audio in real-time via WebSocket (async).
@@ -932,6 +939,9 @@ class AsyncTTSClient:
             ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
                 Useful for long-running generations that may exceed default timeout values.
                 See WebSocketOptions class for available parameters.
+            request_options: Request-level overrides for the handshake, as on HTTP
+                calls: ``additional_headers`` and ``additional_query_params`` (``timeout``
+                does not apply here; use ``ws_options``)
 
         Returns:
             Async iterator of audio bytes
@@ -1022,10 +1032,12 @@ class AsyncTTSClient:
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
 
         ws: AsyncWebSocketSession
+        # Built here, when iteration opens the connection, so the header
+        # provider sees the caller's context of that moment.
         async with aconnect_ws(
             "/v1/tts/live",
             client=self._client.client,
-            headers=self._client.get_headers({"model": model}),
+            **self._client.websocket_kwargs(model, request_options),
             **ws_kwargs,
         ) as ws:
 

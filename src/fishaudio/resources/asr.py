@@ -142,6 +142,7 @@ class ASRClient:
         config: ASRRealtimeConfig = ASRRealtimeConfig(),
         model: str = "transcribe-stream-1",
         ws_options: Optional[WebSocketOptions] = None,
+        request_options: Optional[RequestOptions] = None,
     ) -> ASRRealtimeStream:
         """
         Stream audio and receive transcripts in real-time via WebSocket.
@@ -178,6 +179,9 @@ class ASRClient:
             model: Realtime speech-to-text model
             ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
                 See WebSocketOptions class for available parameters.
+            request_options: Request-level overrides for the handshake, as on HTTP
+                calls: ``additional_headers`` and ``additional_query_params`` (``timeout``
+                does not apply here; use ``ws_options``)
 
         Returns:
             ASRRealtimeStream: an iterator of typed events (check event.type), with
@@ -226,12 +230,16 @@ class ASRClient:
             ```
         """
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
-        headers = self._client.get_headers({"model": model})
-        client = self._client.client
+        wrapper = self._client
 
+        # Headers are built when the session connects (first iteration), so the
+        # header provider sees the caller's context of that moment.
         return ASRRealtimeStream(
             lambda: connect_ws(
-                REALTIME_PATH, client=client, headers=headers, **ws_kwargs
+                REALTIME_PATH,
+                client=wrapper.client,
+                **wrapper.websocket_kwargs(model, request_options),
+                **ws_kwargs,
             ),
             _realtime_config(
                 config,
@@ -329,6 +337,7 @@ class AsyncASRClient:
         config: ASRRealtimeConfig = ASRRealtimeConfig(),
         model: str = "transcribe-stream-1",
         ws_options: Optional[WebSocketOptions] = None,
+        request_options: Optional[RequestOptions] = None,
     ) -> AsyncASRRealtimeStream:
         """
         Stream audio and receive transcripts in real-time via WebSocket (async).
@@ -365,6 +374,9 @@ class AsyncASRClient:
             model: Realtime speech-to-text model
             ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
                 See WebSocketOptions class for available parameters.
+            request_options: Request-level overrides for the handshake, as on HTTP
+                calls: ``additional_headers`` and ``additional_query_params`` (``timeout``
+                does not apply here; use ``ws_options``)
 
         Returns:
             AsyncASRRealtimeStream: an async iterator of typed events (check event.type), with
@@ -413,12 +425,16 @@ class AsyncASRClient:
             ```
         """
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
-        headers = self._client.get_headers({"model": model})
-        client = self._client.client
+        wrapper = self._client
 
+        # Headers are built when the session connects (first iteration), so the
+        # header provider sees the caller's context of that moment.
         return AsyncASRRealtimeStream(
             lambda: aconnect_ws(
-                REALTIME_PATH, client=client, headers=headers, **ws_kwargs
+                REALTIME_PATH,
+                client=wrapper.client,
+                **wrapper.websocket_kwargs(model, request_options),
+                **ws_kwargs,
             ),
             _realtime_config(
                 config,

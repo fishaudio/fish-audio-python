@@ -28,12 +28,14 @@ Example:
 
 from ._version import __version__
 from .client import AsyncFishAudio, FishAudio
+from .core.client_wrapper import HeaderProvider
 from .core.iterators import (
     AsyncAudioStream,
     AsyncTTSTimestampStream,
     AudioStream,
     TTSTimestampStream,
 )
+from .core.request_options import RequestOptions
 from .core.websocket_options import WebSocketOptions
 from .exceptions import (
     APIError,
@@ -90,6 +92,8 @@ __all__ = [
     "ASRResults",
     "ASRTurnDetection",
     "TTSConfig",
+    "HeaderProvider",
+    "RequestOptions",
     "WebSocketOptions",
     # Types
     "ASRContextItem",

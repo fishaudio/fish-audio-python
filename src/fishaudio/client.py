@@ -5,6 +5,7 @@ from typing import Optional
 import httpx
 
 from .core import AsyncClientWrapper, ClientWrapper
+from .core.client_wrapper import HeaderProvider
 from .resources import (
     AccountClient,
     ASRClient,
@@ -46,6 +47,7 @@ class FishAudio:
         base_url: str = "https://api.fish.audio",
         timeout: float = 240.0,
         httpx_client: Optional[httpx.Client] = None,
+        header_provider: Optional[HeaderProvider] = None,
     ):
         """
         Initialize Fish Audio client.
@@ -55,12 +57,25 @@ class FishAudio:
             base_url: API base URL
             timeout: Request timeout in seconds
             httpx_client: Optional custom HTTP client
+            header_provider: Optional function the SDK calls for every request
+                and WebSocket handshake, right before it is sent, to add headers
+                such as the W3C ``traceparent`` of your current request. It takes
+                no arguments and returns a mapping of header names to values, or
+                None. It runs on the thread (sync client) or in the task (async
+                client) that makes the call, so it can read ``contextvars`` and
+                the current OpenTelemetry span; keep it fast and free of I/O.
+                Headers the SDK sets (``Authorization``, ``model``,
+                ``User-Agent``, ``Content-Type``, WebSocket handshake headers),
+                per-call ``additional_headers`` and headers on ``httpx_client``
+                win over it. An exception it raises fails the call, unchanged,
+                before anything is sent. See the README's "Tracing" section.
         """
         self._client_wrapper = ClientWrapper(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout,
             httpx_client=httpx_client,
+            header_provider=header_provider,
         )
 
         # Lazy-loaded namespace clients
@@ -140,6 +155,7 @@ class AsyncFishAudio:
         base_url: str = "https://api.fish.audio",
         timeout: float = 240.0,
         httpx_client: Optional[httpx.AsyncClient] = None,
+        header_provider: Optional[HeaderProvider] = None,
     ):
         """
         Initialize async Fish Audio client.
@@ -149,12 +165,25 @@ class AsyncFishAudio:
             base_url: API base URL
             timeout: Request timeout in seconds
             httpx_client: Optional custom async HTTP client
+            header_provider: Optional function the SDK calls for every request
+                and WebSocket handshake, right before it is sent, to add headers
+                such as the W3C ``traceparent`` of your current request. It takes
+                no arguments and returns a mapping of header names to values, or
+                None. It runs on the thread (sync client) or in the task (async
+                client) that makes the call, so it can read ``contextvars`` and
+                the current OpenTelemetry span; keep it fast and free of I/O.
+                Headers the SDK sets (``Authorization``, ``model``,
+                ``User-Agent``, ``Content-Type``, WebSocket handshake headers),
+                per-call ``additional_headers`` and headers on ``httpx_client``
+                win over it. An exception it raises fails the call, unchanged,
+                before anything is sent. See the README's "Tracing" section.
         """
         self._client_wrapper = AsyncClientWrapper(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout,
             httpx_client=httpx_client,
+            header_provider=header_provider,
         )
 
         # Lazy-loaded namespace clients
