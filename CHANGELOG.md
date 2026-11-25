@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.5.0...fish-audio-sdk-v1.6.0) (2026-11-25)
+
+
+### Features
+
+* **tts:** add text-to-speech with word-level timestamps ([#173](https://github.com/fishaudio/fish-audio-python/issues/173)) ([e23dd10](https://github.com/fishaudio/fish-audio-python/commit/e23dd1072b40cb14f6f54c9d7abf8539d964378d))
+
 ## [1.5.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.4.0...fish-audio-sdk-v1.5.0) (2026-11-24)
 
 
