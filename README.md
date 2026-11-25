@@ -329,28 +329,33 @@ except FishAudioError as e:
 
 Fish Audio continues your distributed trace when a request carries a W3C
 [`traceparent`](https://www.w3.org/TR/trace-context/) header, on HTTP calls and on
-both WebSockets. Pass a `header_provider`: the SDK calls it for every request and
-every WebSocket handshake, right before sending, on the thread (`FishAudio`) or in
-the task (`AsyncFishAudio`) that makes the call. It takes no arguments, so read your
-current span or request inside it, and returns the headers to add, or `None`.
+both WebSockets.
 
-**OpenTelemetry.** If `httpx` is instrumented (`opentelemetry-instrumentation-httpx`,
-or `opentelemetry-instrument`), every SDK request, both WebSockets included, already
-carries `traceparent`: you need nothing here. If it is not:
+**OpenTelemetry: on by default.** If your app uses OpenTelemetry, the SDK sends the
+current trace ID to Fish Audio in a `traceparent` header so you can find your
+requests in Fish Audio's traces. It sends no other trace data (no `baggage`, no
+`tracestate`). To turn this off, pass `header_provider=None`:
 
 ```python
-from opentelemetry.propagate import inject
-
-def otel_headers():
-    carrier = {}
-    inject(carrier)  # the current span's traceparent (and baggage, if configured)
-    return carrier
-
-client = FishAudio(header_provider=otel_headers)
+client = FishAudio(header_provider=None)
 ```
 
-Using both is harmless: the instrumentation replaces the provider's `traceparent`
-with its own child span's.
+It needs no extra package: without `opentelemetry-api`, or without an active span,
+nothing is sent. With `httpx` instrumentation (`opentelemetry-instrumentation-httpx`,
+or `opentelemetry-instrument`) the instrumentation replaces this header with its own
+client span's, so each request still carries one `traceparent` in one trace.
+
+**Any other tracing system.** Pass your own `header_provider`. The SDK calls it for
+every request and every WebSocket handshake, right before sending, on the thread
+(`FishAudio`) or in the task (`AsyncFishAudio`) that makes the call. It takes no
+arguments, so read your current span or request inside it, and returns the headers
+to add, or `None`. It replaces the OpenTelemetry default; to keep both:
+
+```python
+from fishaudio import opentelemetry_headers
+
+client = FishAudio(header_provider=lambda: {**(opentelemetry_headers() or {}), **my_headers()})
+```
 
 **Your own trace IDs.** The API accepts only a valid `traceparent` (version `00`:
 32 hex digits of trace ID, 16 of parent ID, 2 of flags). Convert your IDs; an
@@ -380,7 +385,7 @@ def my_trace_headers():
 client = FishAudio(header_provider=my_trace_headers)
 ```
 
-**No tracing.** Nothing to do.
+**No tracing.** Nothing to do, and nothing is sent.
 
 For one call, pass headers with `request_options`, on HTTP and WebSocket methods alike.
 They win over the provider:

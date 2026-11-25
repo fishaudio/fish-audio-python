@@ -57,6 +57,9 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = [
     "fish-audio-sdk[utils]",
+    "opentelemetry-api>=1.41.1",
+    "opentelemetry-instrumentation-httpx>=0.62b1",
+    "opentelemetry-sdk>=1.41.1",
     "poethepoet>=0.32.0",
     "pydoc-markdown>=4.8.2",
     "pytest>=8.3.5",

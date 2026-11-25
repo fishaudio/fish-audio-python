@@ -36,6 +36,7 @@ from .core.iterators import (
     TTSTimestampStream,
 )
 from .core.request_options import RequestOptions
+from .core.tracing import opentelemetry_headers
 from .core.websocket_options import WebSocketOptions
 from .exceptions import (
     APIError,
@@ -95,6 +96,7 @@ __all__ = [
     "HeaderProvider",
     "RequestOptions",
     "WebSocketOptions",
+    "opentelemetry_headers",
     # Types
     "ASRContextItem",
     "ASRFinalizeEvent",
