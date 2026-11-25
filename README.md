@@ -75,11 +75,13 @@ import asyncio
 from fishaudio import AsyncFishAudio
 from fishaudio.utils import play, save
 
+
 async def main():
     client = AsyncFishAudio()
     audio = await client.tts.convert(text="Hello, world!")
     play(audio)
     save(audio, "output.mp3")
+
 
 asyncio.run(main())
 ```
@@ -115,8 +117,7 @@ drama_audio = client.tts.convert(
 ```python
 # Use a specific voice by ID
 audio = client.tts.convert(
-    text="Custom voice",
-    reference_id="802e3bc2b27e49c2995d23ef70e6ac89"
+    text="Custom voice", reference_id="802e3bc2b27e49c2995d23ef70e6ac89"
 )
 ```
 
@@ -125,7 +126,7 @@ audio = client.tts.convert(
 ```python
 audio = client.tts.convert(
     text="Speaking faster!",
-    speed=1.5  # 1.5x speed
+    speed=1.5,  # 1.5x speed
 )
 ```
 
@@ -138,7 +139,7 @@ config = TTSConfig(
     prosody=Prosody(speed=1.2, volume=-5),
     reference_id="933563129e564b19a115bedd57b7406a",
     format="wav",
-    latency="balanced"
+    latency="balanced",
 )
 
 # Reuse across generations
@@ -188,10 +189,12 @@ print(result.language_code)  # e.g. "en"
 ```python
 import wave
 
+
 def audio_chunks():
     with wave.open("speech.wav", "rb") as wav:  # 16-bit mono PCM, 16 kHz
         while chunk := wav.readframes(640):  # 40 ms
             yield chunk
+
 
 # diarize=False gives plain text; by default it starts with a speaker tag: "<|speaker:0|> Hello."
 for event in client.asr.stream_websocket(
@@ -219,6 +222,7 @@ def text_chunks():
     yield "this is "
     yield "streaming!"
 
+
 audio_stream = client.tts.stream_websocket(text_chunks(), latency="balanced")
 play(audio_stream)
 ```
@@ -230,6 +234,7 @@ async def text_chunks():
     yield "Hello, "
     yield "this is "
     yield "streaming!"
+
 
 audio_stream = await client.tts.stream_websocket(text_chunks(), latency="balanced")
 play(audio_stream)
@@ -248,10 +253,7 @@ from fishaudio.types import ReferenceAudio
 with open("reference.wav", "rb") as f:
     audio = client.tts.convert(
         text="Cloned voice speaking",
-        references=[ReferenceAudio(
-            audio=f.read(),
-            text="Text spoken in reference"
-        )]
+        references=[ReferenceAudio(audio=f.read(), text="Text spoken in reference")],
     )
 ```
 
@@ -261,16 +263,11 @@ with open("reference.wav", "rb") as f:
 # Create voice model for reuse
 with open("voice_sample.wav", "rb") as f:
     voice = client.voices.create(
-        title="My Voice",
-        voices=[f.read()],
-        description="Custom voice clone"
+        title="My Voice", voices=[f.read()], description="Custom voice clone"
     )
 
 # Use the created model
-audio = client.tts.convert(
-    text="Using my saved voice",
-    reference_id=voice.id
-)
+audio = client.tts.convert(text="Using my saved voice", reference_id=voice.id)
 ```
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/voice-cloning)
@@ -291,7 +288,7 @@ from fishaudio.exceptions import (
     AuthenticationError,
     RateLimitError,
     ValidationError,
-    FishAudioError
+    FishAudioError,
 )
 
 try:
