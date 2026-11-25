@@ -19,6 +19,7 @@ from typing import (
 import httpx
 import ormsgpack
 from httpx_ws import HTTPXWSException, WebSocketDisconnect, WebSocketUpgradeError
+from typing_extensions import Self  # noqa: TC002 - runtime, for typing.get_type_hints
 
 from fishaudio.core._ws_utils import drain_reader, interrupt_writes
 from fishaudio.core.client_wrapper import _api_error
@@ -57,7 +58,6 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
     from httpx_ws import AsyncWebSocketSession, WebSocketSession
-    from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
