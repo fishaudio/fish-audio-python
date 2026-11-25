@@ -169,6 +169,18 @@ def rejecting_script(conn):
     conn.send({"event": "error", "error": 'Invalid language "en us".'})
 
 
+def rejecting_after_text_script(conn):
+    """Like rejecting_script, but rejects only once the first text has arrived.
+
+    The sender-shutdown tests need the sender to be past its first text and
+    blocked in text_stream when the error comes; rejecting right after the
+    start event lets the error win that race and the tests time out.
+    """
+    while conn.recv().get("event") != "text":
+        pass
+    conn.send({"event": "error", "error": 'Invalid language "en us".'})
+
+
 @contextlib.contextmanager
 def serving(script):
     server = RealtimeServer(script)
@@ -256,7 +268,7 @@ class TestWebSocket:
             resumed.append(True)
             yield "later"
 
-        with serving(rejecting_script) as (server, client):
+        with serving(rejecting_after_text_script) as (server, client):
             with pytest.raises(WebSocketError):
                 list(client.tts.stream_websocket(text_stream(), language="en us"))
             gate.set()
@@ -280,7 +292,7 @@ class TestWebSocket:
             finally:
                 cancelled.set()
 
-        async with aserving(rejecting_script) as (server, client):
+        async with aserving(rejecting_after_text_script) as (server, client):
             with pytest.raises(WebSocketError):
                 async for _ in client.tts.stream_websocket(
                     text_stream(), language="en us"
