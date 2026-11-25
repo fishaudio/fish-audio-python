@@ -57,6 +57,14 @@ def _tts_stream_websocket(model: str) -> None:
         list(TTSClient(_sync_wrapper()).stream_websocket(iter(["hi"]), model=model))
 
 
+def _tts_stream_with_timestamps(model: str) -> None:
+    TTSClient(_sync_wrapper()).stream_with_timestamps(text="hi", model=model)
+
+
+def _tts_convert_with_timestamps(model: str) -> None:
+    TTSClient(_sync_wrapper()).convert_with_timestamps(text="hi", model=model)
+
+
 def _asr_transcribe(model: str) -> None:
     ASRClient(_sync_wrapper()).transcribe(audio=b"audio", model=model)
 
@@ -87,6 +95,18 @@ async def _async_tts_stream_websocket(model: str) -> None:
             pass
 
 
+async def _async_tts_stream_with_timestamps(model: str) -> None:
+    await AsyncTTSClient(_async_wrapper()).stream_with_timestamps(
+        text="hi", model=model
+    )
+
+
+async def _async_tts_convert_with_timestamps(model: str) -> None:
+    await AsyncTTSClient(_async_wrapper()).convert_with_timestamps(
+        text="hi", model=model
+    )
+
+
 async def _async_asr_transcribe(model: str) -> None:
     await AsyncASRClient(_async_wrapper()).transcribe(audio=b"audio", model=model)
 
@@ -98,9 +118,21 @@ async def _async_asr_transcribe_header(model: str) -> None:
     )
 
 
-SYNC_TTS = [_tts_stream, _tts_convert, _tts_stream_websocket]
+SYNC_TTS = [
+    _tts_stream,
+    _tts_convert,
+    _tts_stream_websocket,
+    _tts_stream_with_timestamps,
+    _tts_convert_with_timestamps,
+]
 SYNC_ASR = [_asr_transcribe, _asr_transcribe_header]
-ASYNC_TTS = [_async_tts_stream, _async_tts_convert, _async_tts_stream_websocket]
+ASYNC_TTS = [
+    _async_tts_stream,
+    _async_tts_convert,
+    _async_tts_stream_websocket,
+    _async_tts_stream_with_timestamps,
+    _async_tts_convert_with_timestamps,
+]
 ASYNC_ASR = [_async_asr_transcribe, _async_asr_transcribe_header]
 
 SYNC_CASES = [(call, "s1", S1_MESSAGE) for call in SYNC_TTS] + [

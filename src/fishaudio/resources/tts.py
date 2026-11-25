@@ -319,7 +319,9 @@ class TTSClient:
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
-            model: TTS model to use
+            model: TTS model to use. Deprecated models ("s1", which will be
+                retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -404,7 +406,9 @@ class TTSClient:
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
-            model: TTS model to use
+            model: TTS model to use. Deprecated models ("s1", which will be
+                retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -790,7 +794,9 @@ class AsyncTTSClient:
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
-            model: TTS model to use
+            model: TTS model to use. Deprecated models ("s1", which will be
+                retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -876,7 +882,9 @@ class AsyncTTSClient:
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
             config: TTS configuration (audio settings, voice, model parameters)
-            model: TTS model to use
+            model: TTS model to use. Deprecated models ("s1", which will be
+                retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
