@@ -55,7 +55,6 @@ DEPRECATED_MODELS = frozenset(DEPRECATED_TTS_MODELS) | frozenset(DEPRECATED_ASR_
 # Not resolved, so it matches code objects' filenames (module __file__ paths
 # are absolute).
 _PACKAGE_DIR = str(Path(__file__).parent.parent) + os.sep
-_warned_models: set[str] = set()
 
 
 def _stacklevel_outside_package() -> int:
@@ -73,20 +72,20 @@ def _stacklevel_outside_package() -> int:
 
 
 def warn_if_deprecated_model(model: Optional[str]) -> None:
-    """Emit a FutureWarning the first time a deprecated model is used.
+    """Emit a FutureWarning if a deprecated model is used.
 
     FutureWarning, unlike DeprecationWarning, is shown by default in any
-    module, so applications that call the SDK see it. Each model warns once
-    per process, so streaming loops do not repeat it. If a warnings filter
-    turns the warning into an exception, it is raised on every call.
+    module, so applications that call the SDK see it. The warning is
+    attributed to the caller's line, so Python's warning filters decide how
+    often it is shown: by default once per calling line, so a loop does not
+    repeat it.
     """
-    if model is None or model in _warned_models:
+    if model is None:
         return
     message = DEPRECATED_TTS_MODELS.get(model) or DEPRECATED_ASR_MODELS.get(model)
     if message is None:
         return
     warnings.warn(message, FutureWarning, stacklevel=_stacklevel_outside_package())
-    _warned_models.add(model)
 
 
 # Audio format types

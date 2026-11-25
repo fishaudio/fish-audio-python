@@ -157,7 +157,7 @@ for chunk in client.tts.stream(text="Long content..."):
 audio = client.tts.stream(text="Hello!").collect()
 ```
 
-`s1` and `transcribe-1` are deprecated and will be retired on December 31, 2026. After that date, requests that specify them are served by `s2.1-pro` and `transcribe-1-pro`. The SDK emits a `FutureWarning` the first time a deprecated model is used in a process. See [Model Deprecations](https://docs.fish.audio/developer-guide/models-pricing/deprecations).
+`s1` and `transcribe-1` are deprecated and will be retired on December 31, 2026. After that date, requests that specify them are served by `s2.1-pro` and `transcribe-1-pro`. Using a deprecated model emits a `FutureWarning`; with Python's default warning filters it is shown once per calling line. See [Model Deprecations](https://docs.fish.audio/developer-guide/models-pricing/deprecations).
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/text-to-speech)
 

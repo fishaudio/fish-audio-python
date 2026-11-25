@@ -104,7 +104,7 @@ class ASRClient:
                 transcribe-1 is deprecated and will be retired on December 31,
                 2026; after that date, the requests it serves, including those
                 with no ``model`` header, are served by transcribe-1-pro.
-                Passing "transcribe-1" emits a FutureWarning once per process.
+                Passing "transcribe-1" emits a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -297,7 +297,7 @@ class AsyncASRClient:
                 transcribe-1 is deprecated and will be retired on December 31,
                 2026; after that date, the requests it serves, including those
                 with no ``model`` header, are served by transcribe-1-pro.
-                Passing "transcribe-1" emits a FutureWarning once per process.
+                Passing "transcribe-1" emits a FutureWarning.
             request_options: Request-level overrides
 
         Returns:

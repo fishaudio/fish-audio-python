@@ -1,5 +1,6 @@
 """Tests for the warning emitted when a deprecated model is used."""
 
+import threading
 import warnings
 from collections.abc import Awaitable, Callable
 from typing import Any, Optional
@@ -10,7 +11,6 @@ import pytest
 from fishaudio.core import AsyncClientWrapper, ClientWrapper, RequestOptions
 from fishaudio.resources.asr import ASRClient, AsyncASRClient
 from fishaudio.resources.tts import AsyncTTSClient, TTSClient
-from fishaudio.types import shared
 from fishaudio.types.shared import warn_if_deprecated_model
 
 S1_MESSAGE = (
@@ -28,14 +28,6 @@ TRANSCRIBE_1_MESSAGE = (
 
 class _Stop(Exception):
     """Raised by the mocked transport so a call ends right after the check."""
-
-
-@pytest.fixture(autouse=True)
-def reset_warned_models():
-    """Each test starts as a fresh process that has not warned yet."""
-    shared._warned_models.clear()
-    yield
-    shared._warned_models.clear()
 
 
 def _sync_wrapper() -> Mock:
@@ -164,65 +156,132 @@ class TestRetiringModelWarning:
         assert [str(w.message) for w in emitted] == [message]
         assert emitted[0].filename == __file__
 
-    @pytest.mark.parametrize("call,model,message", SYNC_CASES, ids=_ids)
-    def test_sync_entry_point_warns_once_per_process(self, call, model, message):
+
+def _python_default_filters() -> None:
+    """Install the filters a plain `python app.py` run starts with."""
+    warnings.resetwarnings()
+    warnings.filterwarnings("ignore", category=ResourceWarning)
+    warnings.filterwarnings("ignore", category=ImportWarning)
+    warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    warnings.filterwarnings("default", category=DeprecationWarning, module="__main__")
+
+
+class TestWarningFilters:
+    """No state of its own: Python's warning filters decide what is shown."""
+
+    def test_shown_under_default_filters(self):
+        """The default filters hide DeprecationWarning outside __main__, but
+        not this warning."""
         with warnings.catch_warnings(record=True) as record:
-            warnings.simplefilter("always")
-            for _ in range(3):
+            _python_default_filters()
+            _run_sync(_tts_stream, "s1")
+
+        assert len(_deprecation_warnings(record)) == 1
+
+    @pytest.mark.parametrize("call,model,message", SYNC_CASES, ids=_ids)
+    def test_sync_loop_on_one_line_shows_once(self, call, model, message):
+        with warnings.catch_warnings(record=True) as record:
+            _python_default_filters()
+            for _ in range(5):
                 _run_sync(call, model)
 
         assert [str(w.message) for w in _deprecation_warnings(record)] == [message]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("call,model,message", ASYNC_CASES, ids=_ids)
-    async def test_async_entry_point_warns_once_per_process(self, call, model, message):
+    async def test_async_loop_on_one_line_shows_once(self, call, model, message):
         with warnings.catch_warnings(record=True) as record:
-            warnings.simplefilter("always")
-            for _ in range(3):
+            _python_default_filters()
+            for _ in range(5):
                 await _run_async(call, model)
 
         assert [str(w.message) for w in _deprecation_warnings(record)] == [message]
 
-    def test_once_across_entry_points_and_per_model(self):
-        """The once-only state is per model, shared by sync and async clients."""
+    def test_each_calling_line_shows_once(self):
+        client = TTSClient(_sync_wrapper())
         with warnings.catch_warnings(record=True) as record:
-            warnings.simplefilter("always")
-            _run_sync(_tts_stream, "s1")
-            _run_sync(_tts_convert, "s1")
-            _run_sync(_tts_stream, "speech-1.5")
-            _run_sync(_asr_transcribe, "transcribe-1")
-            _run_sync(_asr_transcribe_header, "transcribe-1")
+            _python_default_filters()
+            for _ in range(3):
+                with pytest.raises(_Stop):
+                    client.stream(text="hi", model="s1")  # first line
+                with pytest.raises(_Stop):
+                    client.stream(text="hi", model="s1")  # second line
+
+        emitted = _deprecation_warnings(record)
+        assert [str(w.message) for w in emitted] == [S1_MESSAGE, S1_MESSAGE]
+        assert emitted[0].lineno != emitted[1].lineno
+
+    def test_each_model_shows_once(self):
+        with warnings.catch_warnings(record=True) as record:
+            _python_default_filters()
+            for model in ["s1", "speech-1.5", "s1", "speech-1.5"]:
+                _run_sync(_tts_stream, model)
 
         assert [str(w.message) for w in _deprecation_warnings(record)] == [
             S1_MESSAGE,
             "Model 'speech-1.5' is deprecated. Use 's2.1-pro' instead.",
-            TRANSCRIBE_1_MESSAGE,
         ]
 
-    def test_shown_under_default_filters(self):
-        """Python's default filters, which hide DeprecationWarning outside
-        __main__, do not hide this warning."""
+    def test_always_filter_shows_every_call(self):
         with warnings.catch_warnings(record=True) as record:
-            warnings.resetwarnings()
-            # The filters a plain `python app.py` run installs (Python 3.9+).
-            warnings.filterwarnings("ignore", category=ResourceWarning)
-            warnings.filterwarnings("ignore", category=ImportWarning)
-            warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            warnings.filterwarnings(
-                "default", category=DeprecationWarning, module="__main__"
-            )
+            warnings.simplefilter("always")
+            for _ in range(3):
+                _run_sync(_tts_stream, "s1")
+
+        assert len(_deprecation_warnings(record)) == 3
+
+    @pytest.mark.parametrize("call,model,message", SYNC_CASES, ids=_ids)
+    def test_error_filter_raises_on_every_call(self, call, model, message):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            for _ in range(3):
+                with pytest.raises(FutureWarning) as exc_info:
+                    call(model)
+                assert str(exc_info.value) == message
+
+    def test_error_after_ignore_raises(self):
+        """An earlier call under an ignore filter does not mute a later one."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            _run_sync(_tts_stream, "s1")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            with pytest.raises(FutureWarning, match="December 31, 2026"):
+                _tts_stream("s1")
+
+    def test_shown_after_earlier_ignore(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            _run_sync(_tts_stream, "s1")
+        with warnings.catch_warnings(record=True) as record:
+            _python_default_filters()
             _run_sync(_tts_stream, "s1")
 
         assert len(_deprecation_warnings(record)) == 1
 
-    def test_error_filter_raises_on_every_call(self):
-        """A warning turned into an error is not swallowed by the once-only state."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", FutureWarning)
-            for _ in range(2):
-                with pytest.raises(FutureWarning, match="December 31, 2026"):
-                    _tts_stream("s1")
+    def test_threads_on_one_line_show_once(self):
+        threads, start = 16, threading.Barrier(16)
+        errors: list[BaseException] = []
+
+        def work() -> None:
+            try:
+                start.wait()
+                for _ in range(20):
+                    _run_sync(_tts_stream, "s1")
+            except BaseException as e:  # noqa: BLE001 - re-raised below
+                errors.append(e)
+
+        with warnings.catch_warnings(record=True) as record:
+            _python_default_filters()
+            workers = [threading.Thread(target=work) for _ in range(threads)]
+            for worker in workers:
+                worker.start()
+            for worker in workers:
+                worker.join()
+
+        assert errors == []
+        assert [str(w.message) for w in _deprecation_warnings(record)] == [S1_MESSAGE]
 
 
 class TestCurrentModelsDoNotWarn:

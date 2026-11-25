@@ -99,7 +99,7 @@ class TTSClient:
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use. Deprecated models ("s1", which will be
                 retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
-                emit a FutureWarning once per process.
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -193,7 +193,7 @@ class TTSClient:
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use. Deprecated models ("s1", which will be
                 retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
-                emit a FutureWarning once per process.
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -257,7 +257,7 @@ class TTSClient:
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use. Deprecated models ("s1", which will be
                 retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
-                emit a FutureWarning once per process.
+                emit a FutureWarning.
             max_workers: ThreadPoolExecutor workers for concurrent sender
             ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
                 Useful for long-running generations that may exceed default timeout values.
@@ -419,7 +419,7 @@ class AsyncTTSClient:
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use. Deprecated models ("s1", which will be
                 retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
-                emit a FutureWarning once per process.
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -514,7 +514,7 @@ class AsyncTTSClient:
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use. Deprecated models ("s1", which will be
                 retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
-                emit a FutureWarning once per process.
+                emit a FutureWarning.
             request_options: Request-level overrides
 
         Returns:
@@ -578,7 +578,7 @@ class AsyncTTSClient:
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use. Deprecated models ("s1", which will be
                 retired on December 31, 2026, and "speech-1.5"/"speech-1.6")
-                emit a FutureWarning once per process.
+                emit a FutureWarning.
             ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
                 Useful for long-running generations that may exceed default timeout values.
                 See WebSocketOptions class for available parameters.
