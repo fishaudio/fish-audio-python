@@ -157,6 +157,25 @@ for chunk in client.tts.stream(text="Long content..."):
 audio = client.tts.stream(text="Hello!").collect()
 ```
 
+**Word-level timestamps:**
+
+```python
+# Audio plus the start and end time of every word, for captions, highlighting or lip-sync
+result = client.tts.convert_with_timestamps(text="Hello! Welcome to Fish Audio.")
+save(result.audio, "output.mp3")
+
+for segment in result.segments:
+    print(f"{segment.start:.2f}s - {segment.end:.2f}s  {segment.text}")
+
+# Or use audio and timings while they arrive
+with client.tts.stream_with_timestamps(text="Long content...", format="opus") as stream:
+    for event in stream:
+        send_to_player(event.audio)
+        update_captions(stream.segments)  # timings so far, in seconds from the start
+```
+
+Text without words (only punctuation, or a sound tag such as `[sigh]`) still produces audio, but the API has no timings for it: `segments` is then empty and `result.duration` is `None`.
+
 `s1` and `transcribe-1` are deprecated and will be retired on December 31, 2026. After that date, requests that specify them are served by `s2.1-pro` and `transcribe-1-pro`. Using a deprecated model emits a `FutureWarning`; with Python's default warning filters it is shown once per calling line. See [Model Deprecations](https://docs.fish.audio/developer-guide/models-pricing/deprecations).
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/text-to-speech)
@@ -282,7 +301,7 @@ audio = client.tts.convert(
 
 | Resource | Description | Key Methods |
 |----------|-------------|-------------|
-| `client.tts` | Text-to-speech | `convert()`, `stream()`, `stream_websocket()` |
+| `client.tts` | Text-to-speech | `convert()`, `stream()`, `convert_with_timestamps()`, `stream_with_timestamps()`, `stream_websocket()` |
 | `client.asr` | Speech recognition | `transcribe()`, `stream_websocket()` |
 | `client.voices` | Voice management | `list()`, `get()`, `create()`, `update()`, `delete()` |
 | `client.account` | Account info | `get_credits()`, `get_package()` |

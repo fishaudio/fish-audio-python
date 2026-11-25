@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from .shared import AudioFormat, LatencyMode
 
@@ -208,3 +208,106 @@ class CloseEvent(BaseModel):
     """
 
     event: Literal["stop"] = "stop"
+
+
+# Text-to-speech with timestamps
+class TTSTimestampSegment(BaseModel):
+    """Timing of one piece of text (usually a word) in generated speech.
+
+    Attributes:
+        text: The text covered by this entry. Punctuation is not included, and
+            languages written without spaces are split per character.
+        start: Start time in seconds
+        end: End time in seconds
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    text: str
+    start: float
+    end: float
+
+
+class TTSAlignment(BaseModel):
+    """Timing snapshot for one text chunk.
+
+    Attributes:
+        segments: Timing entries produced so far, with times measured from the
+            start of the chunk's audio
+        audio_duration: Seconds of the chunk's audio rendered so far
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    segments: list[TTSTimestampSegment]
+    audio_duration: float
+
+
+class TTSTimestampEvent(BaseModel):
+    """One event from a text-to-speech stream with timestamps.
+
+    Audio and timing travel together but are not aligned to each other: `audio`
+    is the next piece of the audio file, while `alignment` is the newest timing
+    snapshot for the text chunk `chunk_seq`. Each snapshot replaces the earlier
+    one for the same chunk. The stream objects do this bookkeeping for you and
+    expose the result as `segments`.
+
+    Attributes:
+        audio: Next audio bytes. Join them in arrival order to get the complete
+            audio. May be empty on a closing event that only corrects timings.
+        content: Text of the chunk that `alignment` describes. Long input is
+            split into several chunks.
+        alignment: Newest timing snapshot for chunk `chunk_seq`, or None when
+            there is none yet or the API cannot time this text
+        chunk_seq: Index of the text chunk that `content` and `alignment` describe
+        chunk_audio_offset_sec: Where that chunk starts in the complete audio,
+            in seconds
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    audio: bytes
+    content: str = ""
+    alignment: Optional[TTSAlignment] = None
+    chunk_seq: int = 0
+    chunk_audio_offset_sec: float = 0.0
+
+    @property
+    def segments(self) -> list[TTSTimestampSegment]:
+        """This event's snapshot with times measured from the start of the complete audio."""
+        if self.alignment is None:
+            return []
+        offset = self.chunk_audio_offset_sec
+        return [
+            TTSTimestampSegment(
+                text=segment.text,
+                start=segment.start + offset,
+                end=segment.end + offset,
+            )
+            for segment in self.alignment.segments
+        ]
+
+
+class TTSTimestampResult(BaseModel):
+    """Complete audio together with the timing of its text.
+
+    The API cannot always time the text, for example when it contains no words
+    (only punctuation or a sound tag such as "[sigh]"). The audio is complete
+    in that case too, but `segments` is empty and `duration` is None. Parts of
+    a long text can also be missing from `segments` for the same reason.
+
+    Attributes:
+        audio: Complete audio as bytes
+        segments: Timing entries (usually words) in speaking order, with times
+            in seconds from the start of `audio`. Empty when the API returned
+            no timings.
+        duration: Length of `audio` in seconds as reported by the API, or None
+            when the API did not report it. The API reports it together with
+            the timings, so it is None when the end of the audio has no
+            timings. It is never measured from `audio`; decode the audio if you
+            need its length in that case.
+    """
+
+    audio: bytes
+    segments: list[TTSTimestampSegment]
+    duration: Optional[float] = None
