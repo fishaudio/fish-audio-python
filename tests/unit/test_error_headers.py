@@ -8,10 +8,18 @@ import contextlib
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import httpx
 import pytest
 from httpx_ws import WebSocketUpgradeError
 
 from fishaudio import APIError, AsyncFishAudio, AuthenticationError, FishAudio
+from fishaudio.core.client_wrapper import _raise_for_status
+from fishaudio.exceptions import (
+    NotFoundError,
+    PermissionError,
+    RateLimitError,
+    ServerError,
+)
 
 from .realtime_server import RealtimeServer
 
@@ -105,3 +113,29 @@ def test_refused_tts_websocket_exposes_the_headers_on_the_upgrade_error():
         server.close()
     assert exc_info.value.response.status_code == 401
     assert exc_info.value.response.headers["x-fish-trace-id"] == "trace-123"
+
+
+@pytest.mark.parametrize(
+    ("status", "error_class"),
+    [
+        (400, APIError),
+        (401, AuthenticationError),
+        (403, PermissionError),
+        (404, NotFoundError),
+        (429, RateLimitError),
+        (503, ServerError),
+    ],
+)
+def test_every_error_class_carries_the_headers(status, error_class):
+    response = httpx.Response(
+        status,
+        headers={"x-fish-trace-id": "trace-123"},
+        json={"message": "refused"},
+        request=httpx.Request("GET", "https://api.fish.audio/v1/tts"),
+    )
+
+    with pytest.raises(APIError) as caught:
+        _raise_for_status(response)
+
+    assert type(caught.value) is error_class
+    assert caught.value.headers["x-fish-trace-id"] == "trace-123"
