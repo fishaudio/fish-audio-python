@@ -1,15 +1,17 @@
-"""Trace context: the default header provider, and the check that the API
-continued the trace the SDK sent."""
+"""Trace context: the default header provider, and the check that the trace
+the SDK sent is the one the API used."""
 
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import logging
+import os
 import re
 import sys
 import threading
 import warnings
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from httpx_ws import WebSocketUpgradeError
 
@@ -22,38 +24,133 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# The OpenTelemetry API's get_current_span, imported on first use: None until
-# then, False when the API is not installed (not retried on every request).
-_get_current_span: Any = None
 
+class _OpenTelemetry:
+    """The parts of OpenTelemetry the default provider uses, imported on first
+    use. Each optional package is looked up once, not on every request."""
 
-def _current_span_getter() -> Any:
-    global _get_current_span
-    if _get_current_span is None:
+    def __init__(self) -> None:
+        from opentelemetry import context, propagate
+
+        self.inject: Callable[[dict[str, str]], None] = propagate.inject
+        self.get_value: Callable[[str], object] = context.get_value
+        self.is_http_instrumentation_enabled: Optional[Callable[[], bool]] = None
         try:
-            from opentelemetry.trace import get_current_span
+            # opentelemetry-instrumentation: the check every OpenTelemetry
+            # HTTP client instrumentation makes before it injects headers.
+            from opentelemetry.instrumentation.utils import (
+                is_http_instrumentation_enabled,
+            )
         except ImportError:
-            _get_current_span = False
+            pass
         else:
-            _get_current_span = get_current_span
-    return _get_current_span
+            self.is_http_instrumentation_enabled = is_http_instrumentation_enabled
+        # Without that package, the same check on the API's own context keys
+        # (the SDK's span and metric exporters set the first one).
+        self.suppress_keys = [
+            key
+            for key in (
+                getattr(context, "_SUPPRESS_INSTRUMENTATION_KEY", None),
+                "suppress_instrumentation",
+                getattr(context, "_SUPPRESS_HTTP_INSTRUMENTATION_KEY", None),
+            )
+            if key is not None
+        ]
+        self.get_excluded_urls: Callable[[str], Any] = _get_excluded_urls
+        try:
+            # opentelemetry-util-http: how instrumentations read
+            # OTEL_PYTHON_<NAME>_EXCLUDED_URLS and OTEL_PYTHON_EXCLUDED_URLS.
+            from opentelemetry.util.http import get_excluded_urls
+        except ImportError:
+            pass
+        else:
+            self.get_excluded_urls = get_excluded_urls
+
+    def suppressed(self) -> bool:
+        if self.is_http_instrumentation_enabled is not None:
+            return not self.is_http_instrumentation_enabled()
+        return any(self.get_value(key) for key in self.suppress_keys)
+
+    def excluded(self, url: str) -> bool:
+        return bool(self.get_excluded_urls("HTTPX").url_disabled(url))
+
+
+class _ExcludeList:
+    """``opentelemetry.util.http.ExcludeList``, for when that package is absent."""
+
+    def __init__(self, patterns: list[str]) -> None:
+        self._regex = re.compile("|".join(patterns)) if patterns else None
+
+    def url_disabled(self, url: str) -> bool:
+        return self._regex is not None and self._regex.search(url) is not None
+
+
+def _get_excluded_urls(instrumentation: str) -> _ExcludeList:
+    """``opentelemetry.util.http.get_excluded_urls``, for when that package is
+    absent: the instrumentation's own variable, else the generic one, as a
+    comma-separated list of regular expressions searched in the URL."""
+    value = os.environ.get(
+        f"OTEL_PYTHON_{instrumentation}_EXCLUDED_URLS",
+        os.environ.get("OTEL_PYTHON_EXCLUDED_URLS", ""),
+    )
+    return _ExcludeList([p.strip() for p in value.split(",")] if value else [])
+
+
+# None until first use, False when the opentelemetry-api package is not
+# installed (not retried on every request).
+_otel: Any = None
+
+
+def _opentelemetry() -> Any:
+    global _otel
+    if _otel is None:
+        try:
+            _otel = _OpenTelemetry()
+        except ImportError:
+            _otel = False
+    return _otel
+
+
+# The URL of the request whose headers the header provider is building, set by
+# the SDK around each call of the provider: the default provider checks it
+# against the excluded-URL settings. None outside such a call.
+request_url: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "fishaudio_request_url", default=None
+)
 
 
 def opentelemetry_headers() -> Optional[dict[str, str]]:
-    """The current OpenTelemetry span as a W3C ``traceparent`` header, or None.
+    """The current OpenTelemetry trace context as a W3C ``traceparent`` header,
+    or None.
 
     The default ``header_provider`` of ``FishAudio`` and ``AsyncFishAudio``.
     It needs no dependency: when the ``opentelemetry-api`` package is not
     installed, or no span is active (also when the API is installed but no
     OpenTelemetry SDK is configured), it returns None and no header is sent.
 
-    It returns ``traceparent`` only, built from the span's IDs and flags:
+    It follows the OpenTelemetry settings that keep an HTTP client
+    instrumentation such as ``opentelemetry-instrumentation-httpx`` from
+    sending trace context, and returns None where they apply:
+
+    - inside ``suppress_instrumentation()`` or
+      ``suppress_http_instrumentation()`` (``opentelemetry.instrumentation.utils``),
+      also without that package installed;
+    - for a request whose URL matches ``OTEL_PYTHON_HTTPX_EXCLUDED_URLS`` (or,
+      when that is not set, ``OTEL_PYTHON_EXCLUDED_URLS``): comma-separated
+      regular expressions, searched in the full URL as the instrumentation
+      sees it, such as ``https://api.fish.audio/v1/tts``. The SDK makes the
+      URL known to it while it calls the header provider, so this also works
+      inside a provider of your own that calls it; called anywhere else, it
+      does not know the URL and checks no exclusion;
+    - when the configured propagators (``OTEL_PROPAGATORS``,
+      ``opentelemetry.propagate.set_global_textmap``) do not write a
+      ``traceparent``, for example ``none`` or ``b3`` alone.
+
+    It returns ``traceparent`` only, as the configured propagators write it:
     no ``baggage``, which can carry application data, and no ``tracestate``.
-    It does not use the configured propagator, because Fish Audio reads the
-    W3C ``traceparent`` only. This covers what the SDK adds; an HTTP
-    instrumentation such as ``opentelemetry-instrumentation-httpx``, if you
-    use one, adds whatever its propagators are configured to send (by
-    default also ``tracestate`` and ``baggage``), with or without this SDK.
+    This covers what the SDK adds; an HTTP instrumentation, if you use one,
+    adds whatever its propagators are configured to send (by default also
+    ``tracestate`` and ``baggage``), with or without this SDK.
 
     It never fails a request: an error inside OpenTelemetry is logged at
     debug level and no header is sent.
@@ -62,19 +159,23 @@ def opentelemetry_headers() -> Optional[dict[str, str]]:
 
         FishAudio(header_provider=lambda: {**(opentelemetry_headers() or {}), **mine()})
     """
-    get_current_span = _current_span_getter()
-    if not get_current_span:
+    otel = _opentelemetry()
+    if not otel:
         return None
     try:
-        context = get_current_span().get_span_context()
-        if not context.is_valid:
+        if otel.suppressed():
             return None
-        return {
-            "traceparent": f"00-{context.trace_id:032x}-{context.span_id:016x}"
-            f"-{int(context.trace_flags):02x}"
-        }
+        url = request_url.get()
+        if url is not None and otel.excluded(url):
+            return None
+        carrier: dict[str, str] = {}
+        otel.inject(carrier)
+        values = [v for k, v in carrier.items() if k.lower() == "traceparent"]
+        if len(values) != 1 or not isinstance(values[0], str):
+            return None
+        return {"traceparent": values[0]}
     except Exception:
-        logger.debug("Could not read the current OpenTelemetry span", exc_info=True)
+        logger.debug("Could not read the OpenTelemetry trace context", exc_info=True)
         return None
 
 
@@ -134,13 +235,19 @@ def sent_traceparents(
 
 
 def check_trace_continued(sent: Sequence[str], response: Any) -> None:
-    """Warn once if ``response`` shows that the API did not continue ``sent``.
+    """Warn once if ``response`` shows that the API used another trace than
+    the one in ``sent``.
 
     ``sent`` are the ``traceparent`` values the SDK put on the request (from
     ``sent_traceparents``); ``response`` is the HTTP response, or the
     WebSocket handshake response. Nothing happens when no traceparent was
     sent, or when the response has no ``x-fish-trace-id`` (another server, a
     proxy that drops it) or one that is not a trace ID.
+
+    The request httpx records on the response (``response.request``) is the
+    one the transport was handed, with whatever an event hook or an
+    instrumented transport changed in it; it tells a value changed in this
+    process from one that left it unchanged.
 
     It never raises into the caller's call path: a failure inside it is
     logged at debug level, and a warning that the caller's filters turn into
@@ -155,9 +262,20 @@ def check_trace_continued(sent: Sequence[str], response: Any) -> None:
         received = received.strip().lower()
         if len(sent) == 1 and traceparent_trace_id(sent[0]) == received:
             return
-        _warn_once(_mismatch_cause(sent), received)
+        _warn_once(_mismatch(sent, _request_traceparents(response), received))
     except Exception:
         logger.debug("Could not check the trace ID of the response", exc_info=True)
+
+
+def _request_traceparents(response: Any) -> Optional[list[str]]:
+    """The traceparent values on the request httpx recorded on ``response``,
+    or None when it has none."""
+    try:
+        headers = response.request.headers
+    except Exception:  # httpx raises RuntimeError when no request is set
+        return None
+    values = headers.get_list("traceparent")
+    return values if all(isinstance(v, str) for v in values) else None
 
 
 def _api_trace_id(value: str) -> Optional[str]:
@@ -169,45 +287,115 @@ def _api_trace_id(value: str) -> Optional[str]:
     return traceparent_trace_id(value)
 
 
-def _mismatch_cause(sent: Sequence[str]) -> tuple[str, str]:
-    """What the SDK sent, and the cause of the mismatch it points to.
+def _describe(values: Sequence[str]) -> str:
+    """A set of traceparent values, as a trace ID or a count: never a header
+    value as sent, which may be anything a header provider returned."""
+    if not values:
+        return "no traceparent"
+    if len(values) > 1:
+        return f"{len(values)} traceparent headers"
+    trace_id = _api_trace_id(values[0])
+    if trace_id is None:
+        return "a traceparent the API does not accept"
+    return f"trace id {trace_id}"
 
-    Only a trace ID or a count is ever included: never a header value as
-    sent, which may be anything a header provider returned.
-    """
-    if len(sent) > 1:
-        return (
-            f"{len(sent)} traceparent headers",
-            "The API continues a trace only when a request carries exactly "
-            "one traceparent.",
-        )
-    sent_id = _api_trace_id(sent[0])
-    if sent_id is None:
-        return (
-            "the traceparent it sent is not one the API accepts",
-            "The API continues only a lowercase version-00 W3C traceparent, "
-            "00-<32 hex trace id>-<16 hex parent id>-<2 hex flags>; any other "
-            "value starts a new trace.",
-        )
-    return (
-        f"sent trace id {sent_id}",
-        "The value the SDK sent is valid, so something on the request path "
-        "after the SDK (a custom httpx transport, an event hook or a proxy) "
-        "added a second traceparent or replaced it with one from another trace.",
+
+_ACCEPTED_FORM = (
+    "The API continues a trace only when a request carries exactly one "
+    "traceparent, and only a lowercase version-00 W3C traceparent, "
+    "00-<32 hex trace id>-<16 hex parent id>-<2 hex flags>; anything else "
+    "starts a new trace."
+)
+
+
+def _mismatch(
+    sent: Sequence[str], final: Optional[Sequence[str]], received: str
+) -> str:
+    """The warning's text: what was sent, the trace the API used, and what
+    the SDK can tell about why they differ."""
+    headline = (
+        "The trace this SDK sent is not the one Fish Audio used "
+        f"(sent {_describe(sent)}; the API used {received})."
     )
+    if len(sent) > 1 or _api_trace_id(sent[0]) is None:
+        cause = _ACCEPTED_FORM
+    elif final is None:
+        cause = (
+            "The value the SDK sent is valid, so another traceparent replaced "
+            "it or was added after the SDK set it, or the API did not continue "
+            "it. Possible causes: opentelemetry-instrumentation-httpx (it "
+            "replaces the value with its own span's when the current span is "
+            "in another trace), a custom httpx transport, an event hook, or a "
+            "proxy."
+        )
+    elif list(final) != list(sent):
+        cause = (
+            "The value the SDK sent is valid. It was changed in this process "
+            "after the SDK set it: the request went out with "
+            f"{_describe(final)}."
+        )
+        if len(final) == 1 and _api_trace_id(final[0]) is not None:
+            cause += (
+                " opentelemetry-instrumentation-httpx does this when the "
+                "current OpenTelemetry span is in another trace: it replaces "
+                "the value with its own span's, in that trace. A custom httpx "
+                "transport or an event hook can do the same."
+            )
+        else:
+            cause += (
+                " A custom httpx transport or an event hook can do this. "
+                + _ACCEPTED_FORM
+            )
+    else:
+        cause = (
+            "The value the SDK sent is valid and was still on the request "
+            "when httpx handed it to the transport. So it was replaced, or a "
+            "second traceparent added, after that point (for example by a "
+            "custom transport that sends a modified copy, or by a proxy), or "
+            "the API did not continue it."
+        )
+    return f"{headline} {cause} See {OBSERVABILITY_DOCS}"
 
 
-def _warn_once(cause: tuple[str, str], received: str) -> None:
+# While set, a mismatch found in this context is queued here instead of being
+# issued, for the caller's task to issue (``issue_deferred``): the async
+# realtime speech-to-text handshake runs in a task the SDK starts, where no
+# caller frame is on the stack for the warning to name.
+_deferred: contextvars.ContextVar[Optional[list[str]]] = contextvars.ContextVar(
+    "fishaudio_deferred_trace_warnings", default=None
+)
+
+
+@contextlib.contextmanager
+def deferring_warnings(queue: list[str]) -> Iterator[None]:
+    """Queue the trace warnings of tasks started in this block in ``queue``."""
+    token = _deferred.set(queue)
+    try:
+        yield
+    finally:
+        _deferred.reset(token)
+
+
+def issue_deferred(queue: list[str]) -> None:
+    """Issue the warnings queued in ``queue``, naming the caller's code."""
+    while queue:
+        _issue(queue.pop(0))
+
+
+def _warn_once(message: str) -> None:
     global _warned
     with _warned_lock:
         if _warned:
             return
         _warned = True
-    sent_part, explanation = cause
-    message = (
-        f"Fish Audio did not continue the trace this SDK sent ({sent_part}; "
-        f"the API used {received}). {explanation} See {OBSERVABILITY_DOCS}"
-    )
+    queue = _deferred.get()
+    if queue is not None:
+        queue.append(message)
+        return
+    _issue(message)
+
+
+def _issue(message: str) -> None:
     try:
         warnings.warn(message, TraceNotContinuedWarning, stacklevel=_stacklevel())
     except Exception:
@@ -218,14 +406,14 @@ def _warn_once(cause: tuple[str, str], received: str) -> None:
 
 def _stacklevel() -> int:
     """The stack level for warnings.warn: the first frame outside the SDK, so
-    the warning names the caller's line. Level 1 is ``_warn_once``.
+    the warning names the caller's line. Level 1 is ``_issue``.
 
-    The async realtime handshake is checked in a task the SDK starts, where no
-    caller frame is on the stack; the warning then names this module instead of
-    a line inside asyncio.
+    Should no caller frame be on the stack (a task the SDK starts that does
+    not defer its warnings), the warning names this module instead of a line
+    inside asyncio.
     """
     level = 2
-    frame = sys._getframe(2)  # The caller of _warn_once, at level 2.
+    frame = sys._getframe(2)  # The caller of _issue, at level 2.
     while frame is not None:
         module = frame.f_globals.get("__name__", "")
         if not (

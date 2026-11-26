@@ -341,7 +341,21 @@ client = FishAudio(header_provider=None)
 ```
 
 It needs no extra package: without `opentelemetry-api`, or without an active span,
-nothing is sent. With `httpx` instrumentation (`opentelemetry-instrumentation-httpx`,
+nothing is sent. It follows the OpenTelemetry settings that keep the `httpx`
+instrumentation from sending trace context, and sends nothing where they apply:
+- inside `suppress_instrumentation()` or `suppress_http_instrumentation()` (from
+  `opentelemetry.instrumentation.utils`). This is also how to send no `traceparent`
+  on one call;
+- for a URL matched by `OTEL_PYTHON_HTTPX_EXCLUDED_URLS` (or, when that is not set,
+  `OTEL_PYTHON_EXCLUDED_URLS`): comma-separated regular expressions searched in the
+  full request URL, such as `https://api.fish.audio/v1/tts` or
+  `https://api.fish.audio/v1/tts/live` for the TTS WebSocket. The SDK makes the URL
+  known to it while it calls the header provider, so this also works when your own
+  provider calls `opentelemetry_headers()`; called anywhere else, it checks no URL;
+- when the configured propagators (`OTEL_PROPAGATORS`) write no `traceparent`, for
+  example `none`, or `b3` alone.
+
+With `httpx` instrumentation (`opentelemetry-instrumentation-httpx`,
 or `opentelemetry-instrument`) the instrumentation replaces this header with its own
 client span's, so each request still carries one `traceparent` in one trace. The
 instrumentation also adds whatever its propagators are configured to send (by default
@@ -349,7 +363,8 @@ instrumentation also adds whatever its propagators are configured to send (by de
 
 **Any other tracing system.** Pass your own `header_provider`. The SDK calls it for
 every request and every WebSocket handshake, right before sending, on the thread
-(`FishAudio`) or in the task (`AsyncFishAudio`) that makes the call. It takes no
+(`FishAudio`) or in the task (`AsyncFishAudio`) that sends it: the one that makes the
+call, or for a WebSocket stream the one that starts iterating it. It takes no
 arguments, so read your current span or request inside it, and returns the headers
 to add, or `None`. It replaces the OpenTelemetry default; to keep both:
 
@@ -390,7 +405,9 @@ client = FishAudio(header_provider=my_trace_headers)
 **No tracing.** Nothing to do, and nothing is sent.
 
 For one call, pass headers with `request_options`, on HTTP and WebSocket methods alike.
-They win over the provider:
+They win over the provider (an empty value is sent empty; there is no per-call way to
+remove a header, so to send no `traceparent` from the OpenTelemetry default on one
+call, make the call inside `suppress_http_instrumentation()`):
 
 ```python
 from fishaudio import RequestOptions
@@ -406,21 +423,37 @@ Rules:
 - An exception it raises fails the call, unchanged, before anything is sent. A result
   that is not a mapping of `str` to `str` (or `None` values, which are skipped) raises
   `TypeError`. A value must be empty or visible ASCII characters, with spaces or tabs
-  only between them (RFC 9110); anything else (non-ASCII, control characters, line breaks,
-  leading or trailing whitespace) raises `ValueError`, which names the header but never
+  only between them (RFC 9110); anything else raises `ValueError`, which names the
+  header and the first problem that applies (a control character, CR, LF, NUL and DEL
+  included; then a non-ASCII character; then leading or trailing whitespace) but never
   shows the value. Ignored names are skipped before their value is checked.
 - It runs once per request, synchronously, so keep it fast and free of I/O. With
   `AsyncFishAudio` it runs on the event loop.
-- Streams connect when you start iterating them; the provider runs then.
+- When it runs, so which span or context it sees:
+  - `tts.stream()` and `tts.stream_with_timestamps()` send their request before they
+    return the stream (`AsyncFishAudio`: when you `await` them), so the provider runs
+    then, not when you iterate. Enter your span before the call.
+  - `tts.stream_websocket()` and `asr.stream_websocket()` connect when you start
+    iterating, so the provider runs then, in the thread or task that iterates.
+  - Every other method sends its request during the call.
 
 **If your trace is not continued.** Every response names the trace Fish Audio used
 (`x-fish-trace-id`). When the SDK sent a `traceparent` and the API used a different
-trace, the SDK issues one `fishaudio.TraceNotContinuedWarning` per process, with both
-trace IDs and the cause it points to: either the value sent is not one the API accepts
-(exactly one lowercase version-`00` `traceparent`; uppercase hex, other versions or
-extra fields start a new trace), or the value was valid and something after the SDK (a
-custom transport, an event hook or a proxy) added a second `traceparent` or replaced it
-with one from another trace. It never fails a request; to silence it, use
+trace, the SDK issues one `fishaudio.TraceNotContinuedWarning` per process: "The trace
+this SDK sent is not the one Fish Audio used", with both trace IDs and what the SDK
+can tell about the cause:
+- the value sent is not one the API accepts (exactly one lowercase version-`00`
+  `traceparent`; uppercase hex, other versions or extra fields start a new trace);
+- the value was valid but changed in this process after the SDK set it, as httpx's
+  record of the request shows. `opentelemetry-instrumentation-httpx` does this when you
+  send your own `traceparent` while the current OpenTelemetry span is in another trace:
+  it replaces your value with its own span's. A custom transport or an event hook can
+  do the same;
+- the value was valid and still on the request when httpx handed it to the transport:
+  it was replaced after that point (a transport that sends a modified copy, a proxy),
+  or the API did not continue it.
+
+It never fails a request; to silence it, use
 `warnings.filterwarnings("ignore", category=fishaudio.TraceNotContinuedWarning)`.
 
 ## Resources

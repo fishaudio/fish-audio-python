@@ -35,7 +35,7 @@ def _connect_ws(
     ws_kwargs: dict,
 ):
     """Open the realtime STT WebSocket and check its handshake's trace ID."""
-    handshake = wrapper.websocket_kwargs(model, request_options)
+    handshake = wrapper.websocket_kwargs(REALTIME_PATH, model, request_options)
     return checked_websocket(
         connect_ws(REALTIME_PATH, client=wrapper.client, **handshake, **ws_kwargs),
         wrapper.traceparents_sent(handshake["headers"]),
@@ -49,7 +49,7 @@ def _aconnect_ws(
     ws_kwargs: dict,
 ):
     """Open the async realtime STT WebSocket and check its handshake's trace ID."""
-    handshake = wrapper.websocket_kwargs(model, request_options)
+    handshake = wrapper.websocket_kwargs(REALTIME_PATH, model, request_options)
     return achecked_websocket(
         aconnect_ws(REALTIME_PATH, client=wrapper.client, **handshake, **ws_kwargs),
         wrapper.traceparents_sent(handshake["headers"]),

@@ -114,12 +114,16 @@ class DependencyError(FishAudioError):
 
 
 class TraceNotContinuedWarning(UserWarning):
-    """Fish Audio did not continue the trace the SDK sent.
+    """The trace Fish Audio used for a request is not the one the SDK sent.
 
     Issued at most once per process, when a request carried a ``traceparent``
     the SDK added (from the default OpenTelemetry provider, your
     ``header_provider``, per-call headers or your httpx client's headers) and
-    the ``x-fish-trace-id`` in the response names a different trace. It never
+    the ``x-fish-trace-id`` in the response names a different trace. The
+    message gives both trace IDs and what the SDK can tell about the cause: a
+    value the API does not accept, a value changed in this process after the
+    SDK set it (for example by ``opentelemetry-instrumentation-httpx``), or a
+    value still on the request when httpx handed it to the transport. It never
     fails a request, also when warnings are turned into errors. Silence it
     with ``warnings.filterwarnings("ignore", category=TraceNotContinuedWarning)``.
     """

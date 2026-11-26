@@ -1,4 +1,4 @@
-"""The warning when the API did not continue the trace the SDK sent.
+"""The warning when the trace the API used is not the one the SDK sent.
 
 The local servers answer like the Fish Audio gateway: a request with exactly
 one valid ``traceparent`` continues its trace, anything else gets a new one,
@@ -163,12 +163,19 @@ class TestHTTP:
         (message,) = trace_warnings(caught)
         assert f"sent trace id {TRACE_A_ID}" in message
         assert re.search(r"the API used [0-9a-f]{32}\)", message)
+        assert message.startswith(
+            "The trace this SDK sent is not the one Fish Audio used "
+            f"(sent trace id {TRACE_A_ID}; the API used "
+        )
         assert "The value the SDK sent is valid" in message
-        assert "added a second traceparent or replaced it" in message
+        # The transport changed the request object httpx recorded: the SDK
+        # can tell it happened in this process.
+        assert "changed in this process" in message
+        assert "went out with 2 traceparent headers" in message
         assert "instrumentation" not in message
         assert "https://docs.fish.audio/api-reference/observability" in message
         # It names the caller's line, not the SDK's.
-        (warning,) = [w for w in caught if "Fish Audio" in str(w.message)]
+        (warning,) = [w for w in caught if "Fish Audio used" in str(w.message)]
         assert warning.filename == __file__
 
     @pytest.mark.parametrize("status", [200, 401, 500])
@@ -322,7 +329,7 @@ class TestHTTP:
             client.account.get_credits()
             client.close()
         (message,) = trace_warnings(caught)
-        assert "the traceparent it sent is not one the API accepts" in message
+        assert "(sent a traceparent the API does not accept;" in message
         assert "lowercase version-00 W3C traceparent" in message
         assert sent not in message
         assert SECRET_VALUE not in message
@@ -348,7 +355,7 @@ class TestHTTP:
             client.account.get_credits()
             client.close()
         (message,) = trace_warnings(caught)
-        assert "the traceparent it sent is not one the API accepts" in message
+        assert "(sent a traceparent the API does not accept;" in message
         assert TRACE_A_ID not in message.split("the API used")[0]
 
     def test_more_than_one_sent_is_counted(self):
@@ -367,7 +374,7 @@ class TestHTTP:
             client.close()
         assert values(seen[0][1], "traceparent") == [TRACE_A, other]
         (message,) = trace_warnings(caught)
-        assert "(2 traceparent headers;" in message
+        assert "(sent 2 traceparent headers;" in message
         assert "exactly one traceparent" in message
 
 
@@ -389,7 +396,9 @@ class TestWarningsAsErrors:
             client.close()
         # The message is not lost: it is logged instead.
         assert [
-            r.levelno for r in caplog.records if "Fish Audio did not" in r.message
+            r.levelno
+            for r in caplog.records
+            if "not the one Fish Audio used" in r.message
         ] == [logging.WARNING]
 
     async def test_simplefilter_error_async_and_websocket(self):
@@ -441,7 +450,7 @@ class TestWarningsAsErrors:
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "ok"
         assert len(seen) == 2
-        assert result.stderr.count("Fish Audio did not continue the trace") == 1
+        assert result.stderr.count("is not the one Fish Audio used") == 1
 
     def test_filterable_by_category(self):
         with recording_server(200, lambda _: OTHER_ID) as (url, _):
@@ -561,7 +570,7 @@ class TestWebSocket:
         with recorded() as caught:
             self.run_sync(kind, refused, provide(SECRET_VALUE))
         (message,) = trace_warnings(caught)
-        assert "not one the API accepts" in message
+        assert "a traceparent the API does not accept" in message
         assert SECRET_VALUE not in message
 
     def test_sync_no_response_header(self, kind, refused):
@@ -667,6 +676,145 @@ class TestHTTPXInstrumentation:
             server.close()
         assert len(values(conn.header_list, "traceparent")) == 1
         assert trace_warnings(caught) == []
+
+
+class TestReplacedByTheInstrumentation:
+    """Your own provider sends trace A while the httpx instrumentation is on
+    with a current span in trace B: the instrumentation replaces A with its
+    own span's traceparent, in B, and the API continues B. The warning says
+    what was sent and what was used, and that the value changed in this
+    process, without saying the API failed to continue it."""
+
+    @staticmethod
+    def assert_replaced(message: str, outer_trace: str) -> None:
+        assert message.startswith(
+            "The trace this SDK sent is not the one Fish Audio used "
+            f"(sent trace id {TRACE_A_ID}; the API used {outer_trace})."
+        )
+        assert "changed in this process" in message
+        assert f"went out with trace id {outer_trace}" in message
+        assert "opentelemetry-instrumentation-httpx" in message
+        assert "did not continue" not in message
+
+    def test_http_sync(self, instrumented):
+        with recording_server(200, gateway) as (url, seen), recorded() as caught:
+            client = FishAudio(
+                api_key="k", base_url=url, header_provider=provide(TRACE_A)
+            )
+            with instrumented.get_tracer("t").start_as_current_span("outer") as outer:
+                client.account.get_credits()
+            client.close()
+        outer_trace = f"{outer.get_span_context().trace_id:032x}"
+        # The instrumentation really replaced the provider's value.
+        ((_, headers),) = seen
+        (sent,) = values(headers, "traceparent")
+        assert sent.split("-")[1] == outer_trace
+        (warning,) = [
+            w
+            for w in caught
+            if issubclass(w.category, fishaudio.TraceNotContinuedWarning)
+        ]
+        self.assert_replaced(str(warning.message), outer_trace)
+        assert warning.filename == __file__
+
+    async def test_http_async_stream(self, instrumented):
+        with recording_server(200, gateway) as (url, _), recorded() as caught:
+            client = AsyncFishAudio(
+                api_key="k", base_url=url, header_provider=provide(TRACE_A)
+            )
+            with instrumented.get_tracer("t").start_as_current_span("outer") as outer:
+                await _astream(client)
+            await client.close()
+        (message,) = trace_warnings(caught)
+        self.assert_replaced(message, f"{outer.get_span_context().trace_id:032x}")
+
+    @pytest.mark.parametrize("kind", ["tts", "stt"])
+    def test_handshakes_sync(self, instrumented, kind):
+        server = ws_server(kind, refused=False)
+        try:
+            with recorded() as caught:
+                client = FishAudio(
+                    api_key="k", base_url=server.url, header_provider=provide(TRACE_A)
+                )
+                with instrumented.get_tracer("t").start_as_current_span("o") as outer:
+                    SYNC_WS[kind](client)
+                client.close()
+            server.stop()
+        finally:
+            server.close()
+        (message,) = trace_warnings(caught)
+        self.assert_replaced(message, f"{outer.get_span_context().trace_id:032x}")
+
+
+def test_unchanged_on_the_request_says_so():
+    """The value was still on the request httpx handed to the transport: the
+    cause is after that point, or the API."""
+    with (
+        recording_server(200, lambda _: OTHER_ID) as (url, _),
+        recorded() as caught,
+    ):
+        client = FishAudio(api_key="k", base_url=url, header_provider=provide(TRACE_A))
+        client.account.get_credits()
+        client.close()
+    (message,) = trace_warnings(caught)
+    assert message.startswith(
+        "The trace this SDK sent is not the one Fish Audio used "
+        f"(sent trace id {TRACE_A_ID}; the API used {OTHER_ID})."
+    )
+    assert "was still on the request when httpx handed it to the transport" in message
+    assert "changed in this process" not in message
+
+
+def test_request_not_visible_lists_possible_causes():
+    response = httpx.Response(200, headers={"x-fish-trace-id": OTHER_ID})
+    with recorded() as caught:
+        tracing.check_trace_continued([TRACE_A], response)
+    (message,) = trace_warnings(caught)
+    assert "Possible causes" in message
+    assert "opentelemetry-instrumentation-httpx" in message
+
+
+@pytest.mark.parametrize("kind", ["tts", "stt"])
+async def test_async_handshake_warning_names_the_callers_line(kind):
+    server = ws_server(
+        kind, refused=False, response_headers=lambda _: [("x-fish-trace-id", OTHER_ID)]
+    )
+    try:
+        with recorded() as caught:
+            client = AsyncFishAudio(
+                api_key="k", base_url=server.url, header_provider=provide(TRACE_A)
+            )
+            await ASYNC_WS[kind](client)
+            await client.close()
+        await asyncio.get_running_loop().run_in_executor(None, server.stop)
+    finally:
+        server.close()
+    (warning,) = [
+        w for w in caught if issubclass(w.category, fishaudio.TraceNotContinuedWarning)
+    ]
+    assert warning.filename == __file__
+
+
+@pytest.mark.parametrize("kind", ["tts", "stt"])
+def test_sync_handshake_warning_names_the_callers_line(kind):
+    server = ws_server(
+        kind, refused=True, response_headers=lambda _: [("x-fish-trace-id", OTHER_ID)]
+    )
+    try:
+        with recorded() as caught:
+            client = FishAudio(
+                api_key="k", base_url=server.url, header_provider=provide(TRACE_A)
+            )
+            with pytest.raises((WebSocketUpgradeError, AuthenticationError)):
+                SYNC_WS[kind](client)
+            client.close()
+        server.stop()
+    finally:
+        server.close()
+    (warning,) = [
+        w for w in caught if issubclass(w.category, fishaudio.TraceNotContinuedWarning)
+    ]
+    assert warning.filename == __file__
 
 
 def test_exported():

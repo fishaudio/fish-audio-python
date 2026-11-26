@@ -598,3 +598,201 @@ class TestWebSockets:
         finally:
             for server in servers:
                 server.close()
+
+
+class TestCallerTask:
+    """The provider runs in the caller's task (async) or thread (sync), on
+    every WebSocket: a provider that looks request data up by
+    ``asyncio.current_task()`` or by thread finds it."""
+
+    async def test_async_handshakes_run_in_the_iterating_task(self):
+        by_task: dict[Any, str] = {}
+
+        def task_keyed() -> dict[str, Optional[str]]:
+            return {"traceparent": by_task[asyncio.current_task()]}
+
+        async def text():
+            yield "hi"
+
+        async def audio():
+            yield b"\x00\x00"
+
+        async def tts(client: AsyncFishAudio) -> None:
+            async for _ in client.tts.stream_websocket(text()):
+                pass
+
+        async def stt(client: AsyncFishAudio) -> None:
+            async for _ in client.asr.stream_websocket(audio()):
+                pass
+
+        for open_stream in (tts, stt):
+            with refusing_ws_server() as server:
+                client = AsyncFishAudio(
+                    api_key="test-key", base_url=server.url, header_provider=task_keyed
+                )
+
+                async def request() -> None:
+                    by_task[asyncio.current_task()] = TRACE_A
+                    await open_stream(client)  # noqa: B023
+
+                with pytest.raises((WebSocketUpgradeError, AuthenticationError)):
+                    await asyncio.create_task(request())
+                await client.close()
+                conn = server.stop()
+            assert values(conn.header_list, "traceparent") == [TRACE_A], open_stream
+
+    def test_sync_handshakes_run_on_the_iterating_thread(self):
+        by_thread: dict[int, str] = {}
+
+        def thread_keyed() -> dict[str, Optional[str]]:
+            return {"traceparent": by_thread[threading.get_ident()]}
+
+        for open_stream in (
+            lambda c: list(c.tts.stream_websocket(iter(["hi"]))),
+            lambda c: list(c.asr.stream_websocket(iter([b"\x00\x00"]))),
+        ):
+            with refusing_ws_server() as server:
+                client = FishAudio(
+                    api_key="test-key",
+                    base_url=server.url,
+                    header_provider=thread_keyed,
+                )
+                errors: list[BaseException] = []
+
+                def request() -> None:
+                    by_thread[threading.get_ident()] = TRACE_A
+                    try:
+                        open_stream(client)  # noqa: B023
+                    except BaseException as e:  # noqa: BLE001
+                        errors.append(e)
+
+                thread = threading.Thread(target=request)
+                thread.start()
+                thread.join()
+                client.close()
+                conn = server.stop()
+            assert len(errors) == 1
+            assert isinstance(errors[0], (WebSocketUpgradeError, AuthenticationError))
+            assert values(conn.header_list, "traceparent") == [TRACE_A]
+
+    async def test_async_asr_provider_error_is_raised_in_the_caller_and_ends_the_stream(
+        self,
+    ):
+        def provider() -> dict[str, str]:
+            assert asyncio.current_task() is caller
+            raise LookupError("no request")
+
+        async def audio():
+            yield b"\x00\x00"
+
+        with refusing_ws_server() as server:
+            client = AsyncFishAudio(
+                api_key="test-key", base_url=server.url, header_provider=provider
+            )
+            stream = client.asr.stream_websocket(audio())
+            caller = asyncio.current_task()
+            with pytest.raises(LookupError):
+                await stream.__anext__()
+            with pytest.raises(StopAsyncIteration):
+                await stream.__anext__()
+            await client.close()
+            server.close()
+        assert server.connection is None  # nothing was sent
+
+
+class TestWhenTheProviderRuns:
+    """When each streaming method sends its request, and so calls the
+    provider: what the README's timing rules state."""
+
+    def test_sync_http_streams_send_before_returning(self):
+        with recording_server() as (url, seen):
+            provider = Counter()
+            client = FishAudio(
+                api_key="test-key", base_url=url, header_provider=provider
+            )
+            stream = client.tts.stream(text="hi")
+            assert provider.calls == 1 and len(seen) == 1  # before iteration
+            stream.collect()
+            events = client.tts.stream_with_timestamps(text="hi")
+            assert provider.calls == 2 and len(seen) == 2
+            list(events)
+            client.close()
+        assert provider.calls == 2
+
+    async def test_async_http_streams_send_when_awaited(self):
+        with recording_server() as (url, seen):
+            provider = Counter()
+            client = AsyncFishAudio(
+                api_key="test-key", base_url=url, header_provider=provider
+            )
+            pending = client.tts.stream(text="hi")
+            assert provider.calls == 0  # a coroutine: nothing has run yet
+            stream = await pending
+            assert provider.calls == 1 and len(seen) == 1  # before iteration
+            await stream.collect()
+            pending = client.tts.stream_with_timestamps(text="hi")
+            assert provider.calls == 1
+            events = await pending
+            assert provider.calls == 2 and len(seen) == 2
+            async for _ in events:
+                pass
+            await client.close()
+
+    def test_sync_websockets_connect_on_first_iteration(self):
+        for open_stream in (
+            lambda c: c.tts.stream_websocket(iter(["hi"])),
+            lambda c: c.asr.stream_websocket(iter([b"\x00\x00"])),
+        ):
+            with refusing_ws_server() as server:
+                provider = Counter()
+                client = FishAudio(
+                    api_key="test-key", base_url=server.url, header_provider=provider
+                )
+                stream = open_stream(client)
+                assert provider.calls == 0
+                with pytest.raises((WebSocketUpgradeError, AuthenticationError)):
+                    next(iter(stream))
+                assert provider.calls == 1
+                client.close()
+                server.stop()
+
+    async def test_async_websockets_connect_on_first_iteration(self):
+        async def text():
+            yield "hi"
+
+        async def audio():
+            yield b"\x00\x00"
+
+        for open_stream in (
+            lambda c: c.tts.stream_websocket(text()),
+            lambda c: c.asr.stream_websocket(audio()),
+        ):
+            with refusing_ws_server() as server:
+                provider = Counter()
+                client = AsyncFishAudio(
+                    api_key="test-key", base_url=server.url, header_provider=provider
+                )
+                stream = open_stream(client)
+                assert provider.calls == 0
+                with pytest.raises((WebSocketUpgradeError, AuthenticationError)):
+                    await stream.__aiter__().__anext__()
+                assert provider.calls == 1
+                await client.close()
+                server.stop()
+
+
+class TestPerCallValues:
+    def test_an_empty_per_call_value_wins_over_the_provider(self):
+        """The SDK has no per-call form for "send no such header": an empty
+        value is sent as given, and the provider does not put its own back."""
+        with recording_server() as (url, seen):
+            client = FishAudio(
+                api_key="test-key",
+                base_url=url,
+                header_provider=lambda: {"traceparent": TRACE_A},
+            )
+            client.account.get_credits(
+                request_options=RequestOptions(additional_headers={"traceparent": ""})
+            )
+            client.close()
+        assert values(seen[0][1], "traceparent") == [""]

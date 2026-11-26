@@ -23,6 +23,7 @@ from httpx_ws import HTTPXWSException, WebSocketDisconnect, WebSocketUpgradeErro
 
 from fishaudio.core._ws_utils import drain_reader, interrupt_writes
 from fishaudio.core.client_wrapper import _api_error
+from fishaudio.core.tracing import deferring_warnings, issue_deferred
 from fishaudio.exceptions import ASRRealtimeError, WebSocketError
 from fishaudio.types.asr_realtime import (
     ASRAgentSpeakingEvent,
@@ -485,11 +486,14 @@ class _End:
 async def _run_session(
     link: _AsyncLink,
     events: asyncio.Queue[Union[ASRRealtimeEvent, _End]],
-    connect: Callable[[], AbstractAsyncContextManager[AsyncWebSocketSession]],
+    connection: AbstractAsyncContextManager[AsyncWebSocketSession],
     config: bytes,
     audio_stream: AsyncIterable[Union[bytes, ASRRealtimeControl]],
 ) -> None:
     """Run one session from connect to close, inside a single task.
+
+    ``connection`` is created by the consumer's task, so the handshake's
+    headers (and the header provider) come from the task that iterates.
 
     httpx-ws keeps an anyio task group open for the lifetime of the connection,
     and a task group must be exited by the task that entered it. An async
@@ -501,7 +505,7 @@ async def _run_session(
     sender: Optional[asyncio.Task[None]] = None
     error: Optional[BaseException] = None
     try:
-        async with connect() as ws:
+        async with connection as ws:
             try:
                 try:
                     await ws.send_bytes(config)
@@ -621,6 +625,7 @@ class AsyncASRRealtimeStream:
         self._getter: Optional[asyncio.Future[Union[ASRRealtimeEvent, _End]]] = None
         self._reading = False
         self._finished = False
+        self._trace_warnings: list[str] = []
 
     def __aiter__(self) -> AsyncASRRealtimeStream:
         return self
@@ -629,18 +634,29 @@ class AsyncASRRealtimeStream:
         if self._finished:
             raise StopAsyncIteration
         if self._events is None:
+            # Created here, in the task that iterates, so the handshake headers
+            # (and the header provider) see this task and its context; an error
+            # building them is raised here, before anything is sent.
+            try:
+                connection = self._connect()
+            except BaseException:
+                self._finished = True
+                raise
             # The session task must not reference this object: it is cancelled,
             # and the connection closed, when the stream is garbage collected.
             self._events = asyncio.Queue(_EVENT_QUEUE_SIZE)
-            self._task = asyncio.create_task(
-                _run_session(
-                    self._link,
-                    self._events,
-                    self._connect,
-                    self._config,
-                    self._audio_stream,
+            # A trace warning from the handshake is issued here, by this task,
+            # so that it names the caller's code rather than the session task.
+            with deferring_warnings(self._trace_warnings):
+                self._task = asyncio.create_task(
+                    _run_session(
+                        self._link,
+                        self._events,
+                        connection,
+                        self._config,
+                        self._audio_stream,
+                    )
                 )
-            )
         if self._reading:
             # Events have one order and one reader. Two reads waiting together
             # would be handed the same event, so refuse the second, as Python
@@ -653,6 +669,7 @@ class AsyncASRRealtimeStream:
             item = await self._next_item()
         finally:
             self._reading = False
+            issue_deferred(self._trace_warnings)
         if item is None:  # closed by aclose() while waiting
             self._finished = True
             raise StopAsyncIteration
@@ -712,6 +729,7 @@ class AsyncASRRealtimeStream:
         if self._task is not None:
             self._task.cancel()
             await asyncio.wait({self._task})
+        issue_deferred(self._trace_warnings)
 
     def __del__(self) -> None:
         if getattr(self, "_getter", None) is not None:

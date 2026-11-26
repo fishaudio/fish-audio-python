@@ -21,7 +21,7 @@ from fishaudio.exceptions import (
 )
 
 from .request_options import RequestOptions
-from .tracing import check_trace_continued, sent_traceparents
+from .tracing import check_trace_continued, request_url, sent_traceparents
 
 
 def _api_error(status: int, message: str, body: Optional[str] = None) -> APIError:
@@ -182,17 +182,18 @@ _CONTROL = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
 def _value_problem(value: str) -> Optional[str]:
     """What is wrong with a header value, as a kind of problem, or None.
 
-    The result never contains the value or any part of it: a header value
-    may be a credential.
+    Three kinds, and for a value with several, the first that applies: a
+    control character (CR, LF, NUL and DEL included), then a non-ASCII
+    character, then leading or trailing whitespace. Every Fish Audio SDK
+    names them the same way. The result never contains the value or any part
+    of it: a header value may be a credential.
     """
     if _FIELD_VALUE.fullmatch(value):
         return None
-    if not value.isascii():
-        return "it contains a non-ASCII character"
-    if "\r" in value or "\n" in value:
-        return "it contains a line break"
     if _CONTROL.search(value):
         return "it contains a control character"
+    if not value.isascii():
+        return "it contains a non-ASCII character"
     # Only visible ASCII, spaces and tabs are left, so a space or tab is at
     # one end (or the value is nothing but spaces and tabs).
     return "it has leading or trailing whitespace"
@@ -304,9 +305,20 @@ class BaseClientWrapper:
         return headers
 
     def _prepare_request_kwargs(
-        self, request_options: Optional[RequestOptions], kwargs: dict[str, Any]
+        self,
+        request_options: Optional[RequestOptions],
+        kwargs: dict[str, Any],
+        method: str = "GET",
+        path: Optional[str] = None,
     ) -> None:
         """Prepare request kwargs by merging headers, timeout, and query params."""
+        # Add query params override if provided
+        if request_options and request_options.additional_query_params:
+            params = kwargs.get("params", {})
+            if isinstance(params, dict):
+                params.update(request_options.additional_query_params)
+                kwargs["params"] = params
+
         # Merge headers
         headers = self.get_headers(
             request_options.additional_headers if request_options else None
@@ -325,24 +337,36 @@ class BaseClientWrapper:
         # httpx client, win over it. (A retry loop added here later must call
         # this once per attempt.)
         client = getattr(self, "_client", None)
-        merged.update(
-            _provided_headers(
-                self.header_provider,
-                [*merged, *(client.headers.keys() if client is not None else [])],
+        if self.header_provider is not None:
+            token = request_url.set(
+                self._request_url(method, path, kwargs.get("params"))
             )
-        )
+            try:
+                provided = _provided_headers(
+                    self.header_provider,
+                    [*merged, *(client.headers.keys() if client is not None else [])],
+                )
+            finally:
+                request_url.reset(token)
+            merged.update(provided)
         kwargs["headers"] = merged
 
         # Apply timeout override if provided
         if request_options and request_options.timeout is not None:
             kwargs["timeout"] = httpx.Timeout(request_options.timeout)
 
-        # Add query params override if provided
-        if request_options and request_options.additional_query_params:
-            params = kwargs.get("params", {})
-            if isinstance(params, dict):
-                params.update(request_options.additional_query_params)
-                kwargs["params"] = params
+    def _request_url(
+        self, method: str, path: Optional[str], params: Any
+    ) -> Optional[str]:
+        """The full URL httpx will send a request to, as an HTTP client
+        instrumentation sees it; None if it cannot be worked out."""
+        client = getattr(self, "_client", None)
+        if client is None or path is None:
+            return None
+        try:
+            return str(client.build_request(method, path, params=params).url)
+        except Exception:
+            return None
 
     def traceparents_sent(self, headers: Mapping[str, str]) -> list[str]:
         """The ``traceparent`` values a request with ``headers`` carries, as
@@ -353,7 +377,7 @@ class BaseClientWrapper:
         return sent_traceparents(headers, getattr(client, "headers", None))
 
     def websocket_kwargs(
-        self, model: str, request_options: Optional[RequestOptions]
+        self, path: str, model: str, request_options: Optional[RequestOptions]
     ) -> dict[str, Any]:
         """Headers and query parameters for a WebSocket handshake.
 
@@ -363,7 +387,8 @@ class BaseClientWrapper:
         set with ``WebSocketOptions``.
         """
         kwargs: dict[str, Any] = {"headers": {"model": model}}
-        self._prepare_request_kwargs(request_options, kwargs)
+        # The handshake is an HTTP GET; httpx-ws sends it to this URL.
+        self._prepare_request_kwargs(request_options, kwargs, "GET", path)
         kwargs.pop("timeout", None)
         return kwargs
 
@@ -420,7 +445,7 @@ class ClientWrapper(BaseClientWrapper):
         Raises:
             APIError: On non-2xx responses
         """
-        self._prepare_request_kwargs(request_options, kwargs)
+        self._prepare_request_kwargs(request_options, kwargs, method, path)
         sent = self.traceparents_sent(kwargs["headers"])
 
         if stream:
@@ -516,7 +541,7 @@ class AsyncClientWrapper(BaseClientWrapper):
         Raises:
             APIError: On non-2xx responses
         """
-        self._prepare_request_kwargs(request_options, kwargs)
+        self._prepare_request_kwargs(request_options, kwargs, method, path)
         sent = self.traceparents_sent(kwargs["headers"])
 
         if stream:

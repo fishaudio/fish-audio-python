@@ -567,7 +567,9 @@ class TTSClient:
             ws: WebSocketSession
             # Built here, when iteration opens the connection, so the header
             # provider sees the caller's context of that moment.
-            handshake = self._client.websocket_kwargs(model, request_options)
+            handshake = self._client.websocket_kwargs(
+                "/v1/tts/live", model, request_options
+            )
             with checked_websocket(
                 connect_ws(
                     "/v1/tts/live",
@@ -1039,7 +1041,9 @@ class AsyncTTSClient:
         ws: AsyncWebSocketSession
         # Built here, when iteration opens the connection, so the header
         # provider sees the caller's context of that moment.
-        handshake = self._client.websocket_kwargs(model, request_options)
+        handshake = self._client.websocket_kwargs(
+            "/v1/tts/live", model, request_options
+        )
         async with achecked_websocket(
             aconnect_ws(
                 "/v1/tts/live",
