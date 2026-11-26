@@ -187,17 +187,27 @@ def _warn_once(sent_id: Optional[str], received: str) -> None:
 
 
 def _stacklevel() -> int:
-    """The stack level of the first frame outside the SDK, for warnings.warn,
-    so the warning names the caller's line. Level 1 is ``_warn_once``."""
+    """The stack level for warnings.warn: the first frame outside the SDK, so
+    the warning names the caller's line. Level 1 is ``_warn_once``.
+
+    The async realtime handshake is checked in a task the SDK starts, where no
+    caller frame is on the stack; the warning then names this module instead of
+    a line inside asyncio.
+    """
     level = 2
     frame = sys._getframe(2)  # The caller of _warn_once, at level 2.
     while frame is not None:
         module = frame.f_globals.get("__name__", "")
-        if not (module.startswith("fishaudio.") or module == "contextlib"):
-            break
+        if not (
+            module.startswith("fishaudio.")
+            or module == "contextlib"
+            or module == "asyncio"
+            or module.startswith("asyncio.")
+        ):
+            return level
         frame = frame.f_back
         level += 1
-    return level
+    return 1
 
 
 @contextlib.contextmanager
