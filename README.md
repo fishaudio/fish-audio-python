@@ -333,8 +333,8 @@ both WebSockets.
 
 **OpenTelemetry: on by default.** If your app uses OpenTelemetry, the SDK sends the
 current trace ID to Fish Audio in a `traceparent` header so you can find your
-requests in Fish Audio's traces. It sends no other trace data (no `baggage`, no
-`tracestate`). To turn this off, pass `header_provider=None`:
+requests in Fish Audio's traces. The SDK itself adds only `traceparent` (no `baggage`,
+no `tracestate`). To turn this off, pass `header_provider=None`:
 
 ```python
 client = FishAudio(header_provider=None)
@@ -343,7 +343,9 @@ client = FishAudio(header_provider=None)
 It needs no extra package: without `opentelemetry-api`, or without an active span,
 nothing is sent. With `httpx` instrumentation (`opentelemetry-instrumentation-httpx`,
 or `opentelemetry-instrument`) the instrumentation replaces this header with its own
-client span's, so each request still carries one `traceparent` in one trace.
+client span's, so each request still carries one `traceparent` in one trace. The
+instrumentation also adds whatever its propagators are configured to send (by default
+`tracestate` and `baggage` too), with or without this SDK.
 
 **Any other tracing system.** Pass your own `header_provider`. The SDK calls it for
 every request and every WebSocket handshake, right before sending, on the thread
@@ -403,7 +405,10 @@ Rules:
   Per-call headers and headers on your own `httpx_client` win over it.
 - An exception it raises fails the call, unchanged, before anything is sent. A result
   that is not a mapping of `str` to `str` (or `None` values, which are skipped) raises
-  `TypeError`; a value with line breaks raises `ValueError`.
+  `TypeError`. A value must be empty or visible ASCII characters, with spaces or tabs
+  only between them (RFC 9110); anything else (non-ASCII, control characters, line breaks,
+  leading or trailing whitespace) raises `ValueError`, which names the header but never
+  shows the value. Ignored names are skipped before their value is checked.
 - It runs once per request, synchronously, so keep it fast and free of I/O. With
   `AsyncFishAudio` it runs on the event loop.
 - Streams connect when you start iterating them; the provider runs then.
@@ -411,9 +416,11 @@ Rules:
 **If your trace is not continued.** Every response names the trace Fish Audio used
 (`x-fish-trace-id`). When the SDK sent a `traceparent` and the API used a different
 trace, the SDK issues one `fishaudio.TraceNotContinuedWarning` per process, with both
-trace IDs. The usual cause is two `traceparent` headers on one request (an HTTP
-auto-instrumentation plus a `header_provider`: keep only one) or a value that is not a
-valid W3C `traceparent`. It never fails a request; to silence it, use
+trace IDs and the cause it points to: either the value sent is not one the API accepts
+(exactly one lowercase version-`00` `traceparent`; uppercase hex, other versions or
+extra fields start a new trace), or the value was valid and something after the SDK (a
+custom transport, an event hook or a proxy) added a second `traceparent` or replaced it
+with one from another trace. It never fails a request; to silence it, use
 `warnings.filterwarnings("ignore", category=fishaudio.TraceNotContinuedWarning)`.
 
 ## Resources

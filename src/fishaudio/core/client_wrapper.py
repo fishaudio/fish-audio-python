@@ -163,8 +163,39 @@ _RESERVED_HEADERS = frozenset(
 
 # RFC 9110 token characters, for header names.
 _HEADER_NAME = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")
-# Control characters other than horizontal tab may not appear in a header value.
-_FORBIDDEN_IN_VALUE = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
+
+# A header value the SDK accepts from a header provider: RFC 9110 section 5.5
+# field-value, restricted to ASCII. It is empty, or visible ASCII characters
+# (0x21-0x7E) with spaces and tabs only between them, never at either end.
+#
+# Every value this accepts is also accepted by the transport (httpx encodes
+# header values as ASCII; h11 allows the same shape) and reaches the server
+# unchanged. It is deliberately stricter than h11 in one respect: h11 also
+# sends DEL (0x7F) and the control characters 0x01-0x08, 0x0B, 0x0C and
+# 0x0E-0x1F, which RFC 9110 does not allow in a field value and which a server
+# or proxy may reject. obs-text (0x80-0xFF) is not allowed either: httpx
+# cannot encode it, and RFC 9110 says new values should not use it.
+_FIELD_VALUE = re.compile(r"(?:[\x21-\x7e](?:[ \t]*[\x21-\x7e])*)?")
+_CONTROL = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
+
+
+def _value_problem(value: str) -> Optional[str]:
+    """What is wrong with a header value, as a kind of problem, or None.
+
+    The result never contains the value or any part of it: a header value
+    may be a credential.
+    """
+    if _FIELD_VALUE.fullmatch(value):
+        return None
+    if not value.isascii():
+        return "it contains a non-ASCII character"
+    if "\r" in value or "\n" in value:
+        return "it contains a line break"
+    if _CONTROL.search(value):
+        return "it contains a control character"
+    # Only visible ASCII, spaces and tabs are left, so a space or tab is at
+    # one end (or the value is nothing but spaces and tabs).
+    return "it has leading or trailing whitespace"
 
 
 def _is_reserved(name: str) -> bool:
@@ -178,8 +209,15 @@ def _provided_headers(
     """Call ``provider`` and return the headers it may add to a request.
 
     ``taken`` are the names the request already has (any casing): they win
-    over the provider, as do the reserved names. An exception raised by the
-    provider reaches the caller unchanged, before anything is sent.
+    over the provider, as do the reserved names. Those names are ignored
+    before their values are looked at, so an invalid value under them does
+    not raise. An exception raised by the provider reaches the caller
+    unchanged, before anything is sent.
+
+    Every value kept is accepted by the transport and sent unchanged. A value
+    that is not (see ``_FIELD_VALUE``) raises ``ValueError`` before anything
+    is sent; the error names the header and the kind of problem, never the
+    value, which may be a credential.
     """
     if provider is None:
         return {}
@@ -205,13 +243,18 @@ def _provided_headers(
             raise ValueError(
                 f"header_provider returned an invalid header name {name!r}"
             )
-        if _FORBIDDEN_IN_VALUE.search(value):
-            # The value is not echoed: it may be a credential.
-            raise ValueError(
-                f"header_provider returned an invalid value for header {name!r}"
-            )
         if _is_reserved(name) or name.lower() in taken_names:
             continue
+        problem = _value_problem(value)
+        if problem is not None:
+            # Only the name (a validated token) and the kind of problem: the
+            # value is not echoed, as it may be a credential.
+            raise ValueError(
+                f"header_provider returned an invalid value for header {name!r}: "
+                f"{problem}. A header value must be visible ASCII characters, "
+                "with spaces or tabs only between them (RFC 9110). "
+                "The value is not shown."
+            )
         # One spelling per name: a later one replaces an earlier one.
         for existing in [n for n in headers if n.lower() == name.lower()]:
             del headers[existing]

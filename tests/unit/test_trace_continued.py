@@ -91,7 +91,8 @@ def trace_warnings(caught: list[warnings.WarningMessage]) -> list[str]:
 
 
 class DuplicatingTransport(httpx.BaseTransport):
-    """Adds a second traceparent, like an instrumentation that appends."""
+    """Adds a second traceparent after the SDK, like a custom transport, an
+    event hook or a proxy could."""
 
     def __init__(self) -> None:
         self._inner = httpx.HTTPTransport()
@@ -162,7 +163,9 @@ class TestHTTP:
         (message,) = trace_warnings(caught)
         assert f"sent trace id {TRACE_A_ID}" in message
         assert re.search(r"the API used [0-9a-f]{32}\)", message)
-        assert "two traceparent headers" in message
+        assert "The value the SDK sent is valid" in message
+        assert "added a second traceparent or replaced it" in message
+        assert "instrumentation" not in message
         assert "https://docs.fish.audio/api-reference/observability" in message
         # It names the caller's line, not the SDK's.
         (warning,) = [w for w in caught if "Fish Audio" in str(w.message)]
@@ -319,7 +322,8 @@ class TestHTTP:
             client.account.get_credits()
             client.close()
         (message,) = trace_warnings(caught)
-        assert "not a valid W3C traceparent" in message
+        assert "the traceparent it sent is not one the API accepts" in message
+        assert "lowercase version-00 W3C traceparent" in message
         assert sent not in message
         assert SECRET_VALUE not in message
         assert "sent trace id" not in message
@@ -334,6 +338,37 @@ class TestHTTP:
             client.account.get_credits()
             client.close()
         assert trace_warnings(caught) == []
+
+    def test_future_version_not_continued_is_not_one_the_api_accepts(self):
+        """The API continues version 00 only: a valid later version that gets
+        a new trace is reported as a value the API does not accept."""
+        sent = f"01-{TRACE_A_ID}-00f067aa0ba902b7-01-more"
+        with recording_server(200, gateway) as (url, _), recorded() as caught:
+            client = FishAudio(api_key="k", base_url=url, header_provider=provide(sent))
+            client.account.get_credits()
+            client.close()
+        (message,) = trace_warnings(caught)
+        assert "the traceparent it sent is not one the API accepts" in message
+        assert TRACE_A_ID not in message.split("the API used")[0]
+
+    def test_more_than_one_sent_is_counted(self):
+        other = f"00-{'1' * 32}-{'2' * 16}-01"
+        with recording_server(200, gateway) as (url, seen), recorded() as caught:
+            client = FishAudio(
+                api_key="k",
+                base_url=url,
+                header_provider=None,
+                httpx_client=httpx.Client(
+                    base_url=url,
+                    headers=[("traceparent", TRACE_A), ("traceparent", other)],
+                ),
+            )
+            client.account.get_credits()
+            client.close()
+        assert values(seen[0][1], "traceparent") == [TRACE_A, other]
+        (message,) = trace_warnings(caught)
+        assert "(2 traceparent headers;" in message
+        assert "exactly one traceparent" in message
 
 
 class TestWarningsAsErrors:
@@ -526,7 +561,7 @@ class TestWebSocket:
         with recorded() as caught:
             self.run_sync(kind, refused, provide(SECRET_VALUE))
         (message,) = trace_warnings(caught)
-        assert "not a valid W3C traceparent" in message
+        assert "not one the API accepts" in message
         assert SECRET_VALUE not in message
 
     def test_sync_no_response_header(self, kind, refused):

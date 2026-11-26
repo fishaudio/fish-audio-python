@@ -47,10 +47,13 @@ def opentelemetry_headers() -> Optional[dict[str, str]]:
     installed, or no span is active (also when the API is installed but no
     OpenTelemetry SDK is configured), it returns None and no header is sent.
 
-    It sends ``traceparent`` only, built from the span's IDs and flags. It
-    sends no ``baggage``, which can carry application data, and no
-    ``tracestate``, and it does not use the configured propagator, because
-    Fish Audio reads the W3C ``traceparent`` only.
+    It returns ``traceparent`` only, built from the span's IDs and flags:
+    no ``baggage``, which can carry application data, and no ``tracestate``.
+    It does not use the configured propagator, because Fish Audio reads the
+    W3C ``traceparent`` only. This covers what the SDK adds; an HTTP
+    instrumentation such as ``opentelemetry-instrumentation-httpx``, if you
+    use one, adds whatever its propagators are configured to send (by
+    default also ``tracestate`` and ``baggage``), with or without this SDK.
 
     It never fails a request: an error inside OpenTelemetry is logged at
     debug level and no header is sent.
@@ -150,33 +153,60 @@ def check_trace_continued(sent: Sequence[str], response: Any) -> None:
         if not isinstance(received, str) or not _TRACE_ID.fullmatch(received.strip()):
             return
         received = received.strip().lower()
-        sent_ids = [traceparent_trace_id(value) for value in sent]
-        if len(sent_ids) == 1 and sent_ids[0] == received:
+        if len(sent) == 1 and traceparent_trace_id(sent[0]) == received:
             return
-        sent_id = next((trace_id for trace_id in sent_ids if trace_id), None)
-        _warn_once(sent_id, received)
+        _warn_once(_mismatch_cause(sent), received)
     except Exception:
         logger.debug("Could not check the trace ID of the response", exc_info=True)
 
 
-def _warn_once(sent_id: Optional[str], received: str) -> None:
+def _api_trace_id(value: str) -> Optional[str]:
+    """The trace ID of ``value`` if the API accepts it as a traceparent: a
+    valid W3C traceparent of version 00, lowercase, with exactly four fields.
+    Otherwise None."""
+    if not value.strip(" \t").startswith("00-"):
+        return None
+    return traceparent_trace_id(value)
+
+
+def _mismatch_cause(sent: Sequence[str]) -> tuple[str, str]:
+    """What the SDK sent, and the cause of the mismatch it points to.
+
+    Only a trace ID or a count is ever included: never a header value as
+    sent, which may be anything a header provider returned.
+    """
+    if len(sent) > 1:
+        return (
+            f"{len(sent)} traceparent headers",
+            "The API continues a trace only when a request carries exactly "
+            "one traceparent.",
+        )
+    sent_id = _api_trace_id(sent[0])
+    if sent_id is None:
+        return (
+            "the traceparent it sent is not one the API accepts",
+            "The API continues only a lowercase version-00 W3C traceparent, "
+            "00-<32 hex trace id>-<16 hex parent id>-<2 hex flags>; any other "
+            "value starts a new trace.",
+        )
+    return (
+        f"sent trace id {sent_id}",
+        "The value the SDK sent is valid, so something on the request path "
+        "after the SDK (a custom httpx transport, an event hook or a proxy) "
+        "added a second traceparent or replaced it with one from another trace.",
+    )
+
+
+def _warn_once(cause: tuple[str, str], received: str) -> None:
     global _warned
     with _warned_lock:
         if _warned:
             return
         _warned = True
-    # Only the two trace IDs are included: never a header value as sent.
-    sent_part = (
-        f"sent trace id {sent_id}"
-        if sent_id is not None
-        else "the traceparent it sent is not a valid W3C traceparent"
-    )
+    sent_part, explanation = cause
     message = (
         f"Fish Audio did not continue the trace this SDK sent ({sent_part}; "
-        f"the API used {received}). Usual causes: the request carried two "
-        "traceparent headers (an HTTP auto-instrumentation plus a header "
-        "provider; use only one), or the value is not a valid W3C traceparent. "
-        f"See {OBSERVABILITY_DOCS}"
+        f"the API used {received}). {explanation} See {OBSERVABILITY_DOCS}"
     )
     try:
         warnings.warn(message, TraceNotContinuedWarning, stacklevel=_stacklevel())

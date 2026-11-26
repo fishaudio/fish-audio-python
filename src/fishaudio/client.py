@@ -65,7 +65,9 @@ class FishAudio:
                 None. The default, ``opentelemetry_headers``, sends the current
                 OpenTelemetry span as ``traceparent`` when your app uses
                 OpenTelemetry, so you can find your requests in Fish Audio's
-                traces; it sends no other trace data. Pass None to turn this
+                traces; the SDK adds no other trace data (an HTTP
+                instrumentation, if you use one, adds what its propagators
+                send). Pass None to turn this
                 off, or your own function to replace it. It runs on the thread (sync client) or in the task (async
                 client) that makes the call, so it can read ``contextvars`` and
                 the current OpenTelemetry span; keep it fast and free of I/O.
@@ -73,7 +75,9 @@ class FishAudio:
                 ``User-Agent``, ``Content-Type``, WebSocket handshake headers),
                 per-call ``additional_headers`` and headers on ``httpx_client``
                 win over it. An exception it raises fails the call, unchanged,
-                before anything is sent. If a response shows that Fish Audio
+                before anything is sent, as does a ``ValueError`` for a value
+                that is not visible ASCII with spaces or tabs only between
+                characters (the error never shows the value). If a response shows that Fish Audio
                 did not continue the ``traceparent`` the SDK sent, the SDK
                 issues one ``TraceNotContinuedWarning`` per process. See the
                 README's "Tracing" section.
@@ -180,7 +184,9 @@ class AsyncFishAudio:
                 None. The default, ``opentelemetry_headers``, sends the current
                 OpenTelemetry span as ``traceparent`` when your app uses
                 OpenTelemetry, so you can find your requests in Fish Audio's
-                traces; it sends no other trace data. Pass None to turn this
+                traces; the SDK adds no other trace data (an HTTP
+                instrumentation, if you use one, adds what its propagators
+                send). Pass None to turn this
                 off, or your own function to replace it. It runs on the thread (sync client) or in the task (async
                 client) that makes the call, so it can read ``contextvars`` and
                 the current OpenTelemetry span; keep it fast and free of I/O.
@@ -188,7 +194,9 @@ class AsyncFishAudio:
                 ``User-Agent``, ``Content-Type``, WebSocket handshake headers),
                 per-call ``additional_headers`` and headers on ``httpx_client``
                 win over it. An exception it raises fails the call, unchanged,
-                before anything is sent. If a response shows that Fish Audio
+                before anything is sent, as does a ``ValueError`` for a value
+                that is not visible ASCII with spaces or tabs only between
+                characters (the error never shows the value). If a response shows that Fish Audio
                 did not continue the ``traceparent`` the SDK sent, the SDK
                 issues one ``TraceNotContinuedWarning`` per process. See the
                 README's "Tracing" section.
