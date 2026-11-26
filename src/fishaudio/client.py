@@ -73,7 +73,10 @@ class FishAudio:
                 ``User-Agent``, ``Content-Type``, WebSocket handshake headers),
                 per-call ``additional_headers`` and headers on ``httpx_client``
                 win over it. An exception it raises fails the call, unchanged,
-                before anything is sent. See the README's "Tracing" section.
+                before anything is sent. If a response shows that Fish Audio
+                did not continue the ``traceparent`` the SDK sent, the SDK
+                issues one ``TraceNotContinuedWarning`` per process. See the
+                README's "Tracing" section.
         """
         self._client_wrapper = ClientWrapper(
             api_key=api_key,
@@ -185,7 +188,10 @@ class AsyncFishAudio:
                 ``User-Agent``, ``Content-Type``, WebSocket handshake headers),
                 per-call ``additional_headers`` and headers on ``httpx_client``
                 win over it. An exception it raises fails the call, unchanged,
-                before anything is sent. See the README's "Tracing" section.
+                before anything is sent. If a response shows that Fish Audio
+                did not continue the ``traceparent`` the SDK sent, the SDK
+                issues one ``TraceNotContinuedWarning`` per process. See the
+                README's "Tracing" section.
         """
         self._client_wrapper = AsyncClientWrapper(
             api_key=api_key,

@@ -34,6 +34,10 @@ SESSION_STARTED = {
 }
 
 
+# Builds the handshake response's extra headers from the request's headers.
+ResponseHeaders = Callable[[list[tuple[str, str]]], list[tuple[str, str]]]
+
+
 class ClientGone(Exception):
     """The client closed the connection."""
 
@@ -41,10 +45,16 @@ class ClientGone(Exception):
 class Connection:
     """One client connection, as seen by a server script."""
 
-    def __init__(self, sock: socket.socket, reject_status: Optional[int]):
+    def __init__(
+        self,
+        sock: socket.socket,
+        reject_status: Optional[int],
+        response_headers: Optional[ResponseHeaders] = None,
+    ):
         self._sock = sock
         self._ws = WSConnection(ConnectionType.SERVER)
         self._reject_status = reject_status
+        self._response_headers = response_headers
         self._pending: deque[dict[str, Any]] = deque()
         self._partial = b""
         self.headers: dict[str, str] = {}
@@ -74,10 +84,20 @@ class Connection:
                     (k.decode(), v.decode()) for k, v in event.extra_headers
                 ]
                 self.headers = dict(self.header_list)
+                extra = [
+                    (k.encode(), v.encode())
+                    for k, v in (
+                        self._response_headers(self.header_list)
+                        if self._response_headers is not None
+                        else []
+                    )
+                ]
                 if self._reject_status is not None:
-                    self._write(RejectConnection(status_code=self._reject_status))
+                    self._write(
+                        RejectConnection(status_code=self._reject_status, headers=extra)
+                    )
                     raise ClientGone
-                self._write(AcceptConnection())
+                self._write(AcceptConnection(extra_headers=extra))
             elif isinstance(event, BytesMessage):
                 self._partial += bytes(event.data)
                 if event.message_finished:
@@ -161,9 +181,11 @@ class RealtimeServer:
         script: Callable[[Connection], None],
         *,
         reject_status: Optional[int] = None,
+        response_headers: Optional[ResponseHeaders] = None,
     ):
         self._script = script
         self._reject_status = reject_status
+        self._response_headers = response_headers
         self._listener = socket.create_server(("127.0.0.1", 0))
         self._listener.settimeout(5)
         self.url = f"http://127.0.0.1:{self._listener.getsockname()[1]}"
@@ -180,7 +202,7 @@ class RealtimeServer:
             self.finished.set()
             return
         sock.settimeout(5)
-        self.connection = Connection(sock, self._reject_status)
+        self.connection = Connection(sock, self._reject_status, self._response_headers)
         try:
             self.connection.handshake()
             self._script(self.connection)

@@ -21,6 +21,7 @@ from fishaudio.exceptions import (
 )
 
 from .request_options import RequestOptions
+from .tracing import check_trace_continued, sent_traceparents
 
 
 def _api_error(status: int, message: str, body: Optional[str] = None) -> APIError:
@@ -300,6 +301,14 @@ class BaseClientWrapper:
                 params.update(request_options.additional_query_params)
                 kwargs["params"] = params
 
+    def traceparents_sent(self, headers: Mapping[str, str]) -> list[str]:
+        """The ``traceparent`` values a request with ``headers`` carries, as
+        httpx merges them with the client's headers: what the SDK put there
+        (the header provider, per-call headers, the httpx client's headers).
+        Compared with the response by ``check_trace_continued``."""
+        client = getattr(self, "_client", None)
+        return sent_traceparents(headers, getattr(client, "headers", None))
+
     def websocket_kwargs(
         self, model: str, request_options: Optional[RequestOptions]
     ) -> dict[str, Any]:
@@ -369,6 +378,7 @@ class ClientWrapper(BaseClientWrapper):
             APIError: On non-2xx responses
         """
         self._prepare_request_kwargs(request_options, kwargs)
+        sent = self.traceparents_sent(kwargs["headers"])
 
         if stream:
             timeout = kwargs.pop("timeout", httpx.USE_CLIENT_DEFAULT)
@@ -376,6 +386,7 @@ class ClientWrapper(BaseClientWrapper):
                 method, path, timeout=timeout, **kwargs
             )
             response = self._client.send(http_request, stream=True)
+            check_trace_continued(sent, response)
             if not response.is_success:
                 try:
                     response.read()
@@ -386,6 +397,7 @@ class ClientWrapper(BaseClientWrapper):
 
         # Make the request
         response = self._client.request(method, path, **kwargs)
+        check_trace_continued(sent, response)
 
         # Handle errors
         if not response.is_success:
@@ -462,6 +474,7 @@ class AsyncClientWrapper(BaseClientWrapper):
             APIError: On non-2xx responses
         """
         self._prepare_request_kwargs(request_options, kwargs)
+        sent = self.traceparents_sent(kwargs["headers"])
 
         if stream:
             timeout = kwargs.pop("timeout", httpx.USE_CLIENT_DEFAULT)
@@ -469,6 +482,7 @@ class AsyncClientWrapper(BaseClientWrapper):
                 method, path, timeout=timeout, **kwargs
             )
             response = await self._client.send(http_request, stream=True)
+            check_trace_continued(sent, response)
             if not response.is_success:
                 try:
                     await response.aread()
@@ -479,6 +493,7 @@ class AsyncClientWrapper(BaseClientWrapper):
 
         # Make the request
         response = await self._client.request(method, path, **kwargs)
+        check_trace_continued(sent, response)
 
         # Handle errors
         if not response.is_success:

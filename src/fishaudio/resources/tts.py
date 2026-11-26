@@ -25,6 +25,7 @@ from fishaudio.core.iterators import (
     AudioStream,
     TTSTimestampStream,
 )
+from fishaudio.core.tracing import achecked_websocket, checked_websocket
 from fishaudio.exceptions import FishAudioError
 from fishaudio.types import (
     AudioFormat,
@@ -566,11 +567,15 @@ class TTSClient:
             ws: WebSocketSession
             # Built here, when iteration opens the connection, so the header
             # provider sees the caller's context of that moment.
-            with connect_ws(
-                "/v1/tts/live",
-                client=self._client.client,
-                **self._client.websocket_kwargs(model, request_options),
-                **ws_kwargs,
+            handshake = self._client.websocket_kwargs(model, request_options)
+            with checked_websocket(
+                connect_ws(
+                    "/v1/tts/live",
+                    client=self._client.client,
+                    **handshake,
+                    **ws_kwargs,
+                ),
+                self._client.traceparents_sent(handshake["headers"]),
             ) as ws:
 
                 def sender():
@@ -1034,11 +1039,15 @@ class AsyncTTSClient:
         ws: AsyncWebSocketSession
         # Built here, when iteration opens the connection, so the header
         # provider sees the caller's context of that moment.
-        async with aconnect_ws(
-            "/v1/tts/live",
-            client=self._client.client,
-            **self._client.websocket_kwargs(model, request_options),
-            **ws_kwargs,
+        handshake = self._client.websocket_kwargs(model, request_options)
+        async with achecked_websocket(
+            aconnect_ws(
+                "/v1/tts/live",
+                client=self._client.client,
+                **handshake,
+                **ws_kwargs,
+            ),
+            self._client.traceparents_sent(handshake["headers"]),
         ) as ws:
 
             async def sender():

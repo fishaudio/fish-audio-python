@@ -111,3 +111,15 @@ class DependencyError(FishAudioError):
             f"Missing required dependency: {dependency}\n"
             f"Install it with: {install_command}"
         )
+
+
+class TraceNotContinuedWarning(UserWarning):
+    """Fish Audio did not continue the trace the SDK sent.
+
+    Issued at most once per process, when a request carried a ``traceparent``
+    the SDK added (from the default OpenTelemetry provider, your
+    ``header_provider``, per-call headers or your httpx client's headers) and
+    the ``x-fish-trace-id`` in the response names a different trace. It never
+    fails a request, also when warnings are turned into errors. Silence it
+    with ``warnings.filterwarnings("ignore", category=TraceNotContinuedWarning)``.
+    """

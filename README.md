@@ -408,6 +408,14 @@ Rules:
   `AsyncFishAudio` it runs on the event loop.
 - Streams connect when you start iterating them; the provider runs then.
 
+**If your trace is not continued.** Every response names the trace Fish Audio used
+(`x-fish-trace-id`). When the SDK sent a `traceparent` and the API used a different
+trace, the SDK issues one `fishaudio.TraceNotContinuedWarning` per process, with both
+trace IDs. The usual cause is two `traceparent` headers on one request (an HTTP
+auto-instrumentation plus a `header_provider`: keep only one) or a value that is not a
+valid W3C `traceparent`. It never fails a request; to silence it, use
+`warnings.filterwarnings("ignore", category=fishaudio.TraceNotContinuedWarning)`.
+
 ## Resources
 
 - **Documentation:** [SDK Guide](https://docs.fish.audio/developer-guide/sdk-guide/python/) | [API Reference](https://docs.fish.audio/api-reference/sdk/python/)

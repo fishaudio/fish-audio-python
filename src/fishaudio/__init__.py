@@ -48,6 +48,7 @@ from .exceptions import (
     PermissionError,
     RateLimitError,
     ServerError,
+    TraceNotContinuedWarning,
     ValidationError,
     WebSocketError,
 )
@@ -117,6 +118,7 @@ __all__ = [
     "PermissionError",
     "RateLimitError",
     "ServerError",
+    "TraceNotContinuedWarning",
     "ValidationError",
     "WebSocketError",
     # Version

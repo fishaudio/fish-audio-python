@@ -13,6 +13,7 @@ from fishaudio.core import (
     RequestOptions,
     WebSocketOptions,
 )
+from fishaudio.core.tracing import achecked_websocket, checked_websocket
 from fishaudio.types import (
     ASRContext,
     ASRRealtimeConfig,
@@ -25,6 +26,34 @@ from fishaudio.types import (
 )
 
 from .asr_realtime import REALTIME_PATH, ASRRealtimeStream, AsyncASRRealtimeStream
+
+
+def _connect_ws(
+    wrapper: ClientWrapper,
+    model: str,
+    request_options: Optional[RequestOptions],
+    ws_kwargs: dict,
+):
+    """Open the realtime STT WebSocket and check its handshake's trace ID."""
+    handshake = wrapper.websocket_kwargs(model, request_options)
+    return checked_websocket(
+        connect_ws(REALTIME_PATH, client=wrapper.client, **handshake, **ws_kwargs),
+        wrapper.traceparents_sent(handshake["headers"]),
+    )
+
+
+def _aconnect_ws(
+    wrapper: AsyncClientWrapper,
+    model: str,
+    request_options: Optional[RequestOptions],
+    ws_kwargs: dict,
+):
+    """Open the async realtime STT WebSocket and check its handshake's trace ID."""
+    handshake = wrapper.websocket_kwargs(model, request_options)
+    return achecked_websocket(
+        aconnect_ws(REALTIME_PATH, client=wrapper.client, **handshake, **ws_kwargs),
+        wrapper.traceparents_sent(handshake["headers"]),
+    )
 
 
 def _realtime_config(
@@ -235,12 +264,7 @@ class ASRClient:
         # Headers are built when the session connects (first iteration), so the
         # header provider sees the caller's context of that moment.
         return ASRRealtimeStream(
-            lambda: connect_ws(
-                REALTIME_PATH,
-                client=wrapper.client,
-                **wrapper.websocket_kwargs(model, request_options),
-                **ws_kwargs,
-            ),
+            lambda: _connect_ws(wrapper, model, request_options, ws_kwargs),
             _realtime_config(
                 config,
                 sample_rate=sample_rate,
@@ -430,12 +454,7 @@ class AsyncASRClient:
         # Headers are built when the session connects (first iteration), so the
         # header provider sees the caller's context of that moment.
         return AsyncASRRealtimeStream(
-            lambda: aconnect_ws(
-                REALTIME_PATH,
-                client=wrapper.client,
-                **wrapper.websocket_kwargs(model, request_options),
-                **ws_kwargs,
-            ),
+            lambda: _aconnect_ws(wrapper, model, request_options, ws_kwargs),
             _realtime_config(
                 config,
                 sample_rate=sample_rate,

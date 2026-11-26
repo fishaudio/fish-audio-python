@@ -12,7 +12,7 @@ import contextvars
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import httpx
 import pytest
@@ -64,10 +64,15 @@ def from_contextvar() -> Optional[dict[str, Optional[str]]]:
 
 
 class _Recorder(BaseHTTPRequestHandler):
-    """Records each request's headers and answers ``status``."""
+    """Records each request's headers and answers ``status``.
+
+    ``trace_id``, if set, names the ``x-fish-trace-id`` to answer with, from
+    the request's headers (None: no such header).
+    """
 
     seen: list[tuple[str, list[tuple[str, str]]]]
     status = 200
+    trace_id: Optional[Callable[[list[tuple[str, str]]], Optional[str]]] = None
 
     def _answer(self) -> None:
         self.rfile.read(int(self.headers.get("Content-Length") or 0))
@@ -92,6 +97,11 @@ class _Recorder(BaseHTTPRequestHandler):
         self.send_response(self.status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        trace_id = type(self).trace_id
+        if trace_id is not None:
+            value = trace_id(list(self.headers.items()))
+            if value is not None:
+                self.send_header("x-fish-trace-id", value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -102,8 +112,15 @@ class _Recorder(BaseHTTPRequestHandler):
 
 
 @contextlib.contextmanager
-def recording_server(status: int = 200) -> Iterator[tuple[str, list]]:
-    handler = type("Handler", (_Recorder,), {"seen": [], "status": status})
+def recording_server(
+    status: int = 200,
+    trace_id: Optional[Callable[[list[tuple[str, str]]], Optional[str]]] = None,
+) -> Iterator[tuple[str, list]]:
+    handler = type(
+        "Handler",
+        (_Recorder,),
+        {"seen": [], "status": status, "trace_id": staticmethod(trace_id)},
+    )
     # The default listen backlog (5) refuses bursts of concurrent connections.
     server_class = type("Server", (ThreadingHTTPServer,), {"request_queue_size": 128})
     server = server_class(("127.0.0.1", 0), handler)
