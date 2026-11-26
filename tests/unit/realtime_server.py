@@ -1,4 +1,4 @@
-"""A scripted WebSocket server that speaks the server side of /v1/asr/realtime.
+"""A scripted WebSocket server for the SDK's realtime endpoints.
 
 It listens on a real TCP socket and frames messages with wsproto, so the tests
 exercise the SDK's actual transport (httpx + httpx-ws) rather than mocks of it.
@@ -6,12 +6,13 @@ exercise the SDK's actual transport (httpx + httpx-ws) rather than mocks of it.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import socket
 import threading
 import time
 from collections import deque
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import ormsgpack
 from wsproto import ConnectionType, WSConnection
@@ -23,6 +24,11 @@ from wsproto.events import (
     RejectConnection,
     Request,
 )
+
+from fishaudio import AsyncFishAudio, FishAudio
+
+if TYPE_CHECKING:
+    from fishaudio.core import WebSocketOptions
 
 SESSION_STARTED = {
     "type": "session_started",
@@ -48,6 +54,8 @@ class Connection:
         self._pending: deque[dict[str, Any]] = deque()
         self._partial = b""
         self.headers: dict[str, str] = {}
+        # Every handshake header line in order, repeated names included.
+        self.header_list: list[tuple[str, str]] = []
         self.path: Optional[str] = None
         self.received: list[dict[str, Any]] = []
         self.close_code: Optional[int] = None
@@ -68,7 +76,10 @@ class Connection:
         for event in self._ws.events():
             if isinstance(event, Request):
                 self.path = event.target
-                self.headers = {k.decode(): v.decode() for k, v in event.extra_headers}
+                self.header_list = [
+                    (k.decode(), v.decode()) for k, v in event.extra_headers
+                ]
+                self.headers = dict(self.header_list)
                 if self._reject_status is not None:
                     self._write(RejectConnection(status_code=self._reject_status))
                     raise ClientGone
@@ -201,3 +212,72 @@ class RealtimeServer:
     def close(self) -> None:
         """Stop listening. Called by stop(); safe to call again."""
         self._listener.close()
+
+
+# Driving each of the SDK's four WebSocket paths against a RealtimeServer.
+
+WS_PATHS = ["tts", "asr", "async tts", "async asr"]
+
+
+def _tts_script(conn: Connection) -> None:
+    conn.send({"event": "finish", "reason": "stop"})
+
+
+def _asr_script(conn: Connection) -> None:
+    conn.recv()
+    conn.send(SESSION_STARTED)
+    conn.send({"type": "session_done", "seq": 1, "stats": {"audio_ms": 0, "turns": 0}})
+    conn.close(1000)
+
+
+def _default_client(url: str, is_async: bool) -> Any:
+    if is_async:
+        return AsyncFishAudio(api_key="test-key", base_url=url)
+    return FishAudio(api_key="test-key", base_url=url)
+
+
+@contextlib.contextmanager
+def ws_server(path: str, make_client: Callable[[str, bool], Any] = _default_client):
+    """Yield (server, client) for one connection on ``path`` (one of WS_PATHS)."""
+    server = RealtimeServer(_asr_script if path.endswith("asr") else _tts_script)
+    is_async = path.startswith("async")
+    client = make_client(server.url, is_async)
+    try:
+        yield server, client
+    finally:
+        if is_async:
+            asyncio.run(client.close())
+        else:
+            client.close()
+        server.close()
+
+
+async def _aiter(items: list[Any]) -> Any:
+    for item in items:
+        yield item
+
+
+def open_stream(
+    client: Any, path: str, ws_options: Optional[WebSocketOptions] = None
+) -> Any:
+    """A stream on ``path``. It connects when ``consume`` iterates it."""
+    if path.endswith("asr"):
+        resource, items = client.asr, [b"\x00\x00" * 320]
+    else:
+        resource, items = client.tts, ["Hello"]
+    source = _aiter(items) if path.startswith("async") else iter(items)
+    return resource.stream_websocket(source, ws_options=ws_options)
+
+
+def consume(stream: Any) -> None:
+    """Iterate a sync or async stream to its end."""
+    if hasattr(stream, "__anext__"):
+
+        async def drain() -> None:
+            async for _ in stream:
+                pass
+
+        asyncio.run(drain())
+    else:
+        for _ in stream:
+            pass

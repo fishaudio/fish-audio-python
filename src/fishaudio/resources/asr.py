@@ -3,6 +3,7 @@
 from collections.abc import AsyncIterable, Iterable
 from typing import Optional, Union
 
+import httpx
 import ormsgpack
 from httpx_ws import aconnect_ws, connect_ws
 
@@ -226,7 +227,9 @@ class ASRClient:
             ```
         """
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
-        headers = self._client.get_headers({"model": model})
+        # The SDK's own headers replace any spelling of the same name.
+        headers = httpx.Headers(ws_options.additional_headers if ws_options else None)
+        headers.update(self._client.get_headers({"model": model}))
         client = self._client.client
 
         return ASRRealtimeStream(
@@ -413,7 +416,9 @@ class AsyncASRClient:
             ```
         """
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
-        headers = self._client.get_headers({"model": model})
+        # The SDK's own headers replace any spelling of the same name.
+        headers = httpx.Headers(ws_options.additional_headers if ws_options else None)
+        headers.update(self._client.get_headers({"model": model}))
         client = self._client.client
 
         return AsyncASRRealtimeStream(

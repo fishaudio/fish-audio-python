@@ -8,6 +8,7 @@ from collections.abc import AsyncIterable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union
 
+import httpx
 import ormsgpack
 from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, connect_ws
 
@@ -555,6 +556,9 @@ class TTSClient:
 
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
+        # The SDK's own headers replace any spelling of the same name.
+        headers = httpx.Headers(ws_options.additional_headers if ws_options else None)
+        headers.update(self._client.get_headers({"model": model}))
 
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -563,7 +567,7 @@ class TTSClient:
             with connect_ws(
                 "/v1/tts/live",
                 client=self._client.client,
-                headers=self._client.get_headers({"model": model}),
+                headers=headers,
                 **ws_kwargs,
             ) as ws:
 
@@ -1020,12 +1024,15 @@ class AsyncTTSClient:
 
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
+        # The SDK's own headers replace any spelling of the same name.
+        headers = httpx.Headers(ws_options.additional_headers if ws_options else None)
+        headers.update(self._client.get_headers({"model": model}))
 
         ws: AsyncWebSocketSession
         async with aconnect_ws(
             "/v1/tts/live",
             client=self._client.client,
-            headers=self._client.get_headers({"model": model}),
+            headers=headers,
             **ws_kwargs,
         ) as ws:
 
