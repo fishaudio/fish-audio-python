@@ -19,19 +19,25 @@ from fishaudio.exceptions import (
 from .request_options import RequestOptions
 
 
-def _api_error(status: int, message: str, body: Optional[str] = None) -> APIError:
+def _api_error(
+    status: int,
+    message: str,
+    body: Optional[str] = None,
+    headers: Optional[httpx.Headers] = None,
+) -> APIError:
     """Build the exception that matches an HTTP error status."""
+    error_class = APIError
     if status == 401:
-        return AuthenticationError(status, message, body)
-    if status == 403:
-        return PermissionError(status, message, body)
-    if status == 404:
-        return NotFoundError(status, message, body)
-    if status == 429:
-        return RateLimitError(status, message, body)
-    if status >= 500:
-        return ServerError(status, message, body)
-    return APIError(status, message, body)
+        error_class = AuthenticationError
+    elif status == 403:
+        error_class = PermissionError
+    elif status == 404:
+        error_class = NotFoundError
+    elif status == 429:
+        error_class = RateLimitError
+    elif status >= 500:
+        error_class = ServerError
+    return error_class(status, message, body, headers)
 
 
 def _raise_for_status(response: httpx.Response) -> None:
@@ -45,7 +51,7 @@ def _raise_for_status(response: httpx.Response) -> None:
     except JSONDecodeError:
         message = response.text or httpx.codes.get_reason_phrase(status)
 
-    raise _api_error(status, message, response.text)
+    raise _api_error(status, message, response.text, response.headers)
 
 
 class BaseClientWrapper:
