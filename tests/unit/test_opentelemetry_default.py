@@ -651,3 +651,37 @@ class TestPropagators:
             finally:
                 otel_context.detach(token)
         assert headers == {"traceparent": traceparent_of(span)}
+
+
+class TestOpenTelemetryThatCannotBeLoaded:
+    """OpenTelemetry is installed but fails to load as configured, for example
+    OTEL_PROPAGATORS names a propagator whose package is missing (importing
+    opentelemetry.propagate then raises ValueError). The default provider
+    must send nothing rather than fail the request."""
+
+    def test_a_load_error_sends_no_header_and_does_not_raise(self, monkeypatch):
+        from fishaudio.core import tracing
+
+        def broken():
+            raise ValueError("Propagator b3 not found")
+
+        monkeypatch.setattr(tracing, "_otel", None)
+        monkeypatch.setattr(tracing, "_OpenTelemetry", broken)
+        assert tracing.opentelemetry_headers() is None
+        # Not retried on every request.
+        assert tracing._otel is False
+
+    def test_missing_propagator_package_in_a_fresh_process(self):
+        import subprocess
+        import sys
+
+        code = (
+            "import os; os.environ['OTEL_PROPAGATORS'] = 'b3'\n"
+            "from fishaudio.core import tracing\n"
+            "print(repr(tracing.opentelemetry_headers()))\n"
+        )
+        done = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, check=False
+        )
+        assert done.returncode == 0, done.stderr
+        assert done.stdout.strip() == "None"

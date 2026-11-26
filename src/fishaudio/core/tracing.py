@@ -108,6 +108,13 @@ def _opentelemetry() -> Any:
             _otel = _OpenTelemetry()
         except ImportError:
             _otel = False
+        except Exception:
+            # OpenTelemetry is installed but cannot be loaded as configured:
+            # importing opentelemetry.propagate raises ValueError when
+            # OTEL_PROPAGATORS names a propagator whose package is missing.
+            # Optional tracing must never fail a request, so send nothing.
+            logger.debug("OpenTelemetry could not be loaded", exc_info=True)
+            _otel = False
     return _otel
 
 
