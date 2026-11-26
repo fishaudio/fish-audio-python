@@ -3,6 +3,9 @@
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from typing import Optional
 
+import httpx
+
+from fishaudio.types.shared import set_response_headers
 from fishaudio.types.tts import (
     TTSAlignment,
     TTSTimestampEvent,
@@ -44,6 +47,7 @@ class AudioStream:
         iterator: Iterator[bytes],
         *,
         on_close: Optional[Callable[[], None]] = None,
+        headers: Optional[httpx.Headers] = None,
     ):
         """Initialize the audio iterator wrapper.
 
@@ -51,10 +55,14 @@ class AudioStream:
             iterator: The underlying iterator of audio bytes
             on_close: Called by close() to release the underlying resource,
                 for example the open HTTP response
+            headers: Headers of the HTTP response that opened the stream
         """
         self._iter = iterator
         self._on_close = on_close
         self._closed = False
+        #: Headers of the HTTP response that opened the stream, for example
+        #: ``x-fish-trace-id``. Still readable after the stream is closed.
+        self.headers = headers if headers is not None else httpx.Headers()
 
     def __iter__(self) -> Iterator[bytes]:
         """Allow direct iteration over audio chunks."""
@@ -141,6 +149,7 @@ class AsyncAudioStream:
         async_iterator: AsyncIterator[bytes],
         *,
         on_close: Optional[Callable[[], Awaitable[None]]] = None,
+        headers: Optional[httpx.Headers] = None,
     ):
         """Initialize the async audio iterator wrapper.
 
@@ -148,10 +157,14 @@ class AsyncAudioStream:
             async_iterator: The underlying async iterator of audio bytes
             on_close: Awaited by aclose() to release the underlying resource,
                 for example the open HTTP response
+            headers: Headers of the HTTP response that opened the stream
         """
         self._iter = async_iterator
         self._on_close = on_close
         self._closed = False
+        #: Headers of the HTTP response that opened the stream, for example
+        #: ``x-fish-trace-id``. Still readable after the stream is closed.
+        self.headers = headers if headers is not None else httpx.Headers()
 
     def __aiter__(self) -> AsyncIterator[bytes]:
         """Allow direct async iteration over audio chunks."""
@@ -277,6 +290,7 @@ class TTSTimestampStream:
         iterator: Iterator[TTSTimestampEvent],
         *,
         on_close: Optional[Callable[[], None]] = None,
+        headers: Optional[httpx.Headers] = None,
     ):
         """Initialize the stream.
 
@@ -284,10 +298,14 @@ class TTSTimestampStream:
             iterator: The underlying iterator of events
             on_close: Called by close() to release the underlying resource,
                 for example the open HTTP response
+            headers: Headers of the HTTP response that opened the stream
         """
         self._iter = iterator
         self._on_close = on_close
         self._closed = False
+        #: Headers of the HTTP response that opened the stream, for example
+        #: ``x-fish-trace-id``. Still readable after the stream is closed.
+        self.headers = headers if headers is not None else httpx.Headers()
         self._timeline = _Timeline()
         self._started = False
 
@@ -360,11 +378,13 @@ class TTSTimestampStream:
             )
         try:
             audio = b"".join(event.audio for event in self)
-            return TTSTimestampResult(
+            result = TTSTimestampResult(
                 audio=audio,
                 segments=self._timeline.segments,
                 duration=self._timeline.duration,
             )
+            set_response_headers(result, self.headers)
+            return result
         finally:
             self.close()
 
@@ -400,6 +420,7 @@ class AsyncTTSTimestampStream:
         async_iterator: AsyncIterator[TTSTimestampEvent],
         *,
         on_close: Optional[Callable[[], Awaitable[None]]] = None,
+        headers: Optional[httpx.Headers] = None,
     ):
         """Initialize the stream.
 
@@ -407,10 +428,14 @@ class AsyncTTSTimestampStream:
             async_iterator: The underlying async iterator of events
             on_close: Awaited by aclose() to release the underlying resource,
                 for example the open HTTP response
+            headers: Headers of the HTTP response that opened the stream
         """
         self._iter = async_iterator
         self._on_close = on_close
         self._closed = False
+        #: Headers of the HTTP response that opened the stream, for example
+        #: ``x-fish-trace-id``. Still readable after the stream is closed.
+        self.headers = headers if headers is not None else httpx.Headers()
         self._timeline = _Timeline()
         self._started = False
 
@@ -485,10 +510,12 @@ class AsyncTTSTimestampStream:
             chunks = []
             async for event in self:
                 chunks.append(event.audio)
-            return TTSTimestampResult(
+            result = TTSTimestampResult(
                 audio=b"".join(chunks),
                 segments=self._timeline.segments,
                 duration=self._timeline.duration,
             )
+            set_response_headers(result, self.headers)
+            return result
         finally:
             await self.aclose()

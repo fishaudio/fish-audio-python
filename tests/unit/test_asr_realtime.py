@@ -673,6 +673,8 @@ class TestSyncSession:
         """A network failure on the first frame is a WebSocketError, not httpx-ws's own."""
 
         class LostSession:
+            response = None
+
             def send_bytes(self, data):
                 raise WebSocketNetworkError
 
@@ -1053,6 +1055,8 @@ class TestAsyncSession:
         """A network failure on the first frame is a WebSocketError, not httpx-ws's own."""
 
         class LostSession:
+            response = None
+
             async def send_bytes(self, data):
                 raise WebSocketNetworkError
 

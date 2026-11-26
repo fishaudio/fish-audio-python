@@ -3,6 +3,7 @@
 import warnings
 from typing import Generic, Literal, TypeVar
 
+import httpx
 from pydantic import BaseModel
 
 # Type variable for generic pagination
@@ -19,6 +20,17 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
     total: int
     items: list[T]
+
+
+# Response headers of a result model are kept as a plain instance attribute,
+# not as a pydantic field: they are not part of the response body, so they
+# stay out of model_dump(), equality and the model's schema.
+def set_response_headers(model: BaseModel, headers: httpx.Headers) -> None:
+    object.__setattr__(model, "_response_headers", headers)
+
+
+def get_response_headers(model: BaseModel) -> httpx.Headers:
+    return model.__dict__.get("_response_headers", httpx.Headers())
 
 
 # Model types

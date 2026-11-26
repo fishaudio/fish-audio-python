@@ -222,7 +222,7 @@ class TTSClient:
             finally:
                 response.close()
 
-        return AudioStream(_stream(), on_close=response.close)
+        return AudioStream(_stream(), on_close=response.close, headers=response.headers)
 
     def convert(
         self,
@@ -369,7 +369,9 @@ class TTSClient:
             finally:
                 response.close()
 
-        return TTSTimestampStream(_events(), on_close=response.close)
+        return TTSTimestampStream(
+            _events(), on_close=response.close, headers=response.headers
+        )
 
     def convert_with_timestamps(
         self,
@@ -686,7 +688,9 @@ class AsyncTTSClient:
             finally:
                 await response.aclose()
 
-        return AsyncAudioStream(_stream(), on_close=response.aclose)
+        return AsyncAudioStream(
+            _stream(), on_close=response.aclose, headers=response.headers
+        )
 
     async def convert(
         self,
@@ -835,7 +839,9 @@ class AsyncTTSClient:
             finally:
                 await response.aclose()
 
-        return AsyncTTSTimestampStream(_events(), on_close=response.aclose)
+        return AsyncTTSTimestampStream(
+            _events(), on_close=response.aclose, headers=response.headers
+        )
 
     async def convert_with_timestamps(
         self,
