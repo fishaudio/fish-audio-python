@@ -67,12 +67,18 @@ class BaseClientWrapper:
     def get_headers(
         self, additional_headers: Optional[dict[str, str]] = None
     ) -> dict[str, str]:
-        """Build headers including authentication and user agent."""
+        """Build headers including authentication and user agent.
+
+        A name in ``additional_headers`` replaces the SDK's header of that
+        name whatever its case, so the two are never sent side by side.
+        """
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "User-Agent": f"fish-audio/python/{__version__}",
         }
         if additional_headers:
+            replaced = {name.lower() for name in additional_headers}
+            headers = {k: v for k, v in headers.items() if k.lower() not in replaced}
             headers.update(additional_headers)
         return headers
 
@@ -81,9 +87,9 @@ class BaseClientWrapper:
     ) -> None:
         """Prepare request kwargs by merging headers, timeout, and query params."""
         # Merge headers
-        headers = self.get_headers()
-        if request_options and request_options.additional_headers:
-            headers.update(request_options.additional_headers)
+        headers = self.get_headers(
+            request_options.additional_headers if request_options else None
+        )
         # Headers set by the calling method win, whatever the case of the name:
         # {"Model": ...} from request options must not travel next to {"model": ...}.
         explicit = kwargs.get("headers", {})
