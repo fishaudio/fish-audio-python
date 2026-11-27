@@ -144,7 +144,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AudioStream:
@@ -233,7 +233,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
@@ -295,7 +295,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> TTSTimestampStream:
@@ -380,7 +380,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> TTSTimestampResult:
@@ -444,7 +444,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         max_workers: int = 10,
         ws_options: Optional[WebSocketOptions] = None,
@@ -607,7 +607,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AsyncAudioStream:
@@ -697,7 +697,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
@@ -760,7 +760,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AsyncTTSTimestampStream:
@@ -846,7 +846,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> TTSTimestampResult:
@@ -911,7 +911,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
-        config: TTSConfig = TTSConfig(),
+        config: TTSConfig = TTSConfig(),  # noqa: B008 - never mutated
         model: Union[Model, str] = "s2.1-pro",
         ws_options: Optional[WebSocketOptions] = None,
     ):

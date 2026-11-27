@@ -11,7 +11,6 @@ import threading
 import time
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
     Optional,
     Union,
@@ -20,6 +19,7 @@ from typing import (
 import httpx
 import ormsgpack
 from httpx_ws import HTTPXWSException, WebSocketDisconnect, WebSocketUpgradeError
+from typing_extensions import Self  # noqa: TC002 - runtime, for typing.get_type_hints
 
 from fishaudio.core._ws_utils import drain_reader, interrupt_writes
 from fishaudio.core.client_wrapper import _api_error
@@ -240,7 +240,7 @@ def _send_audio(
             if item:
                 link.send(encode_message(item))
         link.send(_AUDIO_DONE)
-    except BaseException as e:
+    except BaseException as e:  # noqa: BLE001 - re-raised to the consumer
         if not link.closed:  # otherwise the consumer left: nobody to tell
             failure.append(e)
     finally:
@@ -370,10 +370,10 @@ class ASRRealtimeStream:
     def __next__(self) -> ASRRealtimeEvent:
         return next(self._events)
 
-    def __enter__(self) -> ASRRealtimeStream:
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc_info: Any) -> None:
+    def __exit__(self, *exc_info: object) -> None:
         self.close()
 
     def close(self) -> None:
@@ -548,7 +548,7 @@ async def _run_session(
                     await events.put(event)  # waits while the consumer is behind
                     if isinstance(event, ASRSessionDoneEvent):
                         break
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - re-raised to the consumer
                 # Leave the connection block without an exception: newer httpx-ws
                 # wraps one that crosses it in an ExceptionGroup.
                 error = e
@@ -571,7 +571,7 @@ async def _run_session(
     except WebSocketUpgradeError as e:
         error = _upgrade_error(e.response)
         error.__cause__ = e
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - re-raised to the consumer
         error = error or e  # keep the session's own error over one from closing
     # The connection is closed by now. If the queue is full this waits for the
     # consumer; one that has left cancels the task (aclose, or garbage collection).
@@ -631,7 +631,9 @@ class AsyncASRRealtimeStream:
         if self._events is None:
             # The session task must not reference this object: it is cancelled,
             # and the connection closed, when the stream is garbage collected.
-            self._events = asyncio.Queue(_EVENT_QUEUE_SIZE)
+            self._events = asyncio.Queue[Union[ASRRealtimeEvent, _End]](
+                _EVENT_QUEUE_SIZE
+            )
             self._task = asyncio.create_task(
                 _run_session(
                     self._link,
@@ -699,10 +701,10 @@ class AsyncASRRealtimeStream:
             with contextlib.suppress(RuntimeError):
                 getter.cancel()
 
-    async def __aenter__(self) -> AsyncASRRealtimeStream:
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *exc_info: Any) -> None:
+    async def __aexit__(self, *exc_info: object) -> None:
         await self.aclose()
 
     async def aclose(self) -> None:

@@ -95,7 +95,7 @@ if __name__ == "__main__":
         # print("="*50 + "\n")
         # demo_playback_methods()
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Error: {e}")
         print("\nTroubleshooting:")
         print("1. Make sure your API key is set: export FISH_API_KEY='your_key'")

@@ -6,8 +6,6 @@ from typing import Optional
 class FishAudioError(Exception):
     """Base exception for all Fish Audio SDK errors."""
 
-    pass
-
 
 class APIError(FishAudioError):
     """Raised when the API returns an error response."""
@@ -22,37 +20,25 @@ class APIError(FishAudioError):
 class AuthenticationError(APIError):
     """Raised when authentication fails (401)."""
 
-    pass
-
 
 class PermissionError(APIError):
     """Raised when permission is denied (403)."""
-
-    pass
 
 
 class NotFoundError(APIError):
     """Raised when a resource is not found (404)."""
 
-    pass
-
 
 class RateLimitError(APIError):
     """Raised when rate limit is exceeded (429)."""
-
-    pass
 
 
 class ServerError(APIError):
     """Raised when the server encounters an error (5xx)."""
 
-    pass
-
 
 class WebSocketError(FishAudioError):
     """Raised when WebSocket connection or streaming fails."""
-
-    pass
 
 
 class ASRRealtimeError(WebSocketError):
@@ -97,8 +83,6 @@ class ASRRealtimeError(WebSocketError):
 
 class ValidationError(FishAudioError):
     """Raised when request validation fails."""
-
-    pass
 
 
 class DependencyError(FishAudioError):

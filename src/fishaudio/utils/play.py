@@ -55,7 +55,7 @@ def play(
     # Notebook mode
     if notebook:
         try:
-            from IPython.display import Audio, display  # ty: ignore[unresolved-import]
+            from IPython.display import Audio, display  # ty: ignore[import-not-found]
 
             display(Audio(audio, rate=44100, autoplay=True))
             return

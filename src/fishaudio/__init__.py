@@ -68,7 +68,7 @@ from .types import (
 from .utils import play, save, stream
 
 # Main exports
-__all__ = [
+__all__ = [  # noqa: RUF022 - grouped by topic
     # Main clients
     "FishAudio",
     "AsyncFishAudio",

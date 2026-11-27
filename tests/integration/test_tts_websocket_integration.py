@@ -351,8 +351,8 @@ class TestAsyncTTSWebSocketIntegration:
 
         for i in range(3):
 
-            async def text_stream():
-                yield f"This is call number {i + 1}."
+            async def text_stream(number=i + 1):
+                yield f"This is call number {number}."
 
             audio_chunks = []
             async for chunk in async_client.tts.stream_websocket(text_stream()):

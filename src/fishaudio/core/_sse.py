@@ -54,8 +54,7 @@ class SSEDecoder:
                 continue  # comment, used by servers as a keep-alive
 
             name, _, value = line.decode("utf-8", errors="replace").partition(":")
-            if value.startswith(" "):
-                value = value[1:]
+            value = value.removeprefix(" ")
             if name == "data":
                 self._data.append(value)
             elif name == "event":

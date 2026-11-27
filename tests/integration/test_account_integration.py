@@ -28,7 +28,7 @@ class TestAccountIntegration:
             assert package.total >= 0
             assert package.balance >= 0
             assert package.user_id
-        except Exception:
+        except Exception:  # noqa: BLE001
             # User might not have a package
             pytest.skip("No package available for this account")
 
@@ -54,5 +54,5 @@ class TestAsyncAccountIntegration:
             assert isinstance(package, Package)
             assert package.total >= 0
             assert package.balance >= 0
-        except Exception:
+        except Exception:  # noqa: BLE001
             pytest.skip("No package available for this account")

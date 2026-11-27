@@ -77,7 +77,7 @@ class TestTTSIntegration:
             audio = client.tts.convert(text="")
             # If it succeeds, verify we get something
             assert isinstance(audio, bytes)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             # If it fails, that's also acceptable
             pass
 

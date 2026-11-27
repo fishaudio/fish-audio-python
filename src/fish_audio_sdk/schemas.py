@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import decimal
 from typing import Annotated, Generic, Literal, TypeVar
 
@@ -84,8 +84,8 @@ class ModelEntity(BaseModel):
     state: Literal["created", "training", "trained", "failed"]
     tags: list[str]
     samples: list[SampleEntity]
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
+    created_at: dt.datetime
+    updated_at: dt.datetime
     languages: list[str]
     visibility: Literal["public", "unlist", "private"]
     lock_visibility: bool

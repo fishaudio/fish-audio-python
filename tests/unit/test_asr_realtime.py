@@ -550,7 +550,7 @@ class TestSyncSession:
             pytest.raises(ASRRealtimeError) as exc_info,
         ):
             for event in client.asr.stream_websocket(endless_audio()):
-                events.append(event)
+                events.append(event)  # noqa: PERF402 - keeps events yielded before the error
         server.stop()
 
         assert [event.type for event in events] == ["session_started", "error"]
@@ -693,7 +693,7 @@ class TestSyncSession:
     )
     def test_refused_upgrade_raises_api_error(self, status, error_class):
         with (
-            serving(lambda conn: None, reject_status=status) as (server, client),
+            serving(lambda conn: None, reject_status=status) as (_server, client),
             pytest.raises(error_class) as exc_info,
         ):
             list(client.asr.stream_websocket(iter([CHUNK])))
