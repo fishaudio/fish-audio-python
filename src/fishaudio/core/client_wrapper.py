@@ -142,7 +142,10 @@ class BaseClientWrapper:
         api_key: Optional[str] = None,
         base_url: str = "https://api.fish.audio",
     ):
-        self.api_key = api_key or os.getenv("FISH_API_KEY")
+        # Without the whitespace around it: a key read from a file or an
+        # environment variable often ends with a newline, which httpx refuses
+        # with an error that prints the whole Authorization header.
+        self.api_key = (api_key or os.getenv("FISH_API_KEY") or "").strip()
         if not self.api_key:
             raise ValueError(
                 "API key must be provided either as argument or via FISH_API_KEY environment variable"

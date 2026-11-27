@@ -125,6 +125,34 @@ class TestClientWrapper:
         assert headers["Authorization"] == f"Bearer {mock_api_key}"
 
 
+class TestApiKeyWhitespace:
+    """A key read from a file or the environment often ends with a newline."""
+
+    @pytest.mark.parametrize("source", ["argument", "environment"])
+    def test_whitespace_around_the_key_is_not_sent(self, monkeypatch, source):
+        seen = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request.headers["authorization"])
+            return httpx.Response(200, json={})
+
+        http = httpx.Client(
+            base_url="https://api.test", transport=httpx.MockTransport(handler)
+        )
+        if source == "argument":
+            wrapper = ClientWrapper(api_key=" secret-key\r\n", httpx_client=http)
+        else:
+            monkeypatch.setenv("FISH_API_KEY", "secret-key\n")
+            wrapper = ClientWrapper(httpx_client=http)
+        wrapper.request("GET", "/x")
+        assert seen == ["Bearer secret-key"]
+
+    def test_a_key_of_only_whitespace_is_missing(self, monkeypatch):
+        monkeypatch.delenv("FISH_API_KEY", raising=False)
+        with pytest.raises(ValueError, match="API key must be provided"):
+            ClientWrapper(api_key=" \n")
+
+
 class TestRequestHeaders:
     """Headers passed by a method win over RequestOptions, whatever their case."""
 
