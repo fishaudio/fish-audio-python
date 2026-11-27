@@ -186,3 +186,27 @@ def test_instrumentation_replaces_a_traceparent_set_by_hand_on_an_http_call(
 
     [traceparent] = values(http_server.requests[0], "traceparent")
     assert trace_id(traceparent) == span.get_span_context().trace_id
+
+
+@pytest.mark.parametrize("path", WS_PATHS)
+def test_a_handshake_is_sent_under_a_span_of_its_own(tracer, path):
+    with ws_server(path) as (server, client), tracer.start_as_current_span("x") as span:
+        consume(open_stream(client, path, None))
+
+    [traceparent] = values(server.stop().header_list, "traceparent")
+    context = span.get_span_context()
+    assert trace_id(traceparent) == context.trace_id
+    # The parent id on the wire is the instrumentation's client span, a child
+    # of the caller's span, not the caller's span itself.
+    assert int(traceparent.split("-")[2], 16) != context.span_id
+
+
+def test_an_http_call_is_sent_under_a_span_of_its_own(tracer, http_server):
+    client = sdk_client(http_server.url, False)
+    with tracer.start_as_current_span("request") as span:
+        client.tts.convert(text="hi")
+
+    [traceparent] = values(http_server.requests[0], "traceparent")
+    context = span.get_span_context()
+    assert trace_id(traceparent) == context.trace_id
+    assert int(traceparent.split("-")[2], 16) != context.span_id
