@@ -1,8 +1,11 @@
 """HTTP client wrapper for managing requests and authentication."""
 
 import os
+import platform
+import re
+import sys
 from json import JSONDecodeError
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -48,6 +51,88 @@ def _raise_for_status(response: httpx.Response) -> None:
     raise _api_error(status, message, response.text)
 
 
+PRODUCT = f"fish-audio-python/{__version__}"
+"""The SDK's product, ``fish-audio-<language>/<version>``: the format every Fish
+Audio SDK sends, so the API can tell which SDK and version made a request."""
+
+_SAFE_PREFIX = re.compile(r"[A-Za-z0-9._+-]+")
+
+
+def _comment_value(value: object) -> str:
+    """Make a value safe inside an RFC 9110 comment.
+
+    Keeps the leading run of letters, digits and ``._+-`` (at most 32
+    characters) and drops the rest, so ``(``, ``)``, ``\\``, whitespace and
+    control characters never reach the header. Returns ``unknown`` when
+    nothing usable is left.
+    """
+    if not isinstance(value, str):
+        return "unknown"
+    match = _SAFE_PREFIX.match(value.strip())
+    return match.group(0)[:32] if match else "unknown"
+
+
+def _os_family(sys_platform: object) -> str:
+    """The OS family as one short lowercase word: linux, darwin, windows, ..."""
+    os_name = _comment_value(
+        sys_platform.lower() if isinstance(sys_platform, str) else sys_platform
+    )
+    if os_name in ("win32", "cygwin", "msys"):
+        return "windows"
+    # sys.platform carries a version on some systems, e.g. freebsd14.
+    return os_name.rstrip("0123456789") or "unknown"
+
+
+def build_user_agent(python_version: object, sys_platform: object) -> str:
+    """Return ``fish-audio-python/<version> (python <python version>; <os>)``.
+
+    Only the runtime, its version and the OS family are included: nothing
+    that identifies a person or machine.
+    """
+    return (
+        f"{PRODUCT} (python {_comment_value(python_version)}; "
+        f"{_os_family(sys_platform)})"
+    )
+
+
+USER_AGENT = build_user_agent(platform.python_version(), sys.platform)
+"""The User-Agent the SDK sends, computed once at import, e.g.
+``fish-audio-python/1.6.0 (python 3.12.1; linux)``."""
+
+# What httpx sends when nobody set a User-Agent; only this exact value is ignored.
+_HTTPX_DEFAULT_USER_AGENT = f"python-httpx/{httpx.__version__}"
+
+
+def user_agent(caller: Optional[str] = None) -> str:
+    """Return the User-Agent to send: the SDK's own, then ``caller`` if set.
+
+    A caller's value is appended after the SDK's product and runtime comment
+    rather than allowed to replace them, so an app can name itself without
+    hiding which SDK made the request. A value that already starts with the
+    SDK's User-Agent is not doubled.
+    """
+    value = (caller or "").strip()
+    if value == USER_AGENT or value.startswith(f"{USER_AGENT} "):
+        value = value[len(USER_AGENT) :].strip()
+    return f"{USER_AGENT} {value}" if value else USER_AGENT
+
+
+def _caller_user_agent(
+    client: Union[httpx.Client, httpx.AsyncClient, None],
+) -> Optional[str]:
+    """The User-Agent on an httpx client, unless it is httpx's unchanged default.
+
+    A customised value that merely starts with httpx's product, such as
+    ``python-httpx/0.28.1 my-app/1.0``, is kept.
+    """
+    if client is None:
+        return None
+    value = client.headers.get("user-agent")
+    if not value or value.strip() == _HTTPX_DEFAULT_USER_AGENT:
+        return None
+    return value
+
+
 class BaseClientWrapper:
     """Base wrapper with shared logic for sync/async clients."""
 
@@ -67,13 +152,22 @@ class BaseClientWrapper:
     def get_headers(
         self, additional_headers: Optional[dict[str, str]] = None
     ) -> dict[str, str]:
-        """Build headers including authentication and user agent."""
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "User-Agent": f"fish-audio/python/{__version__}",
-        }
-        if additional_headers:
-            headers.update(additional_headers)
+        """Build headers including authentication and user agent.
+
+        A ``User-Agent`` in ``additional_headers`` (any casing), or else one set
+        on a user-supplied httpx client, is appended to the SDK's own.
+        """
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        # Read from the client on every call, so a User-Agent changed on a
+        # supplied httpx client after construction is used. The SDK's own
+        # client carries USER_AGENT, which user_agent() does not double.
+        caller = _caller_user_agent(getattr(self, "_client", None))
+        for name, value in (additional_headers or {}).items():
+            if name.lower() == "user-agent":
+                caller = value
+            else:
+                headers[name] = value
+        headers["User-Agent"] = user_agent(caller)
         return headers
 
     def _prepare_request_kwargs(
@@ -81,9 +175,9 @@ class BaseClientWrapper:
     ) -> None:
         """Prepare request kwargs by merging headers, timeout, and query params."""
         # Merge headers
-        headers = self.get_headers()
-        if request_options and request_options.additional_headers:
-            headers.update(request_options.additional_headers)
+        headers = self.get_headers(
+            request_options.additional_headers if request_options else None
+        )
         # Headers set by the calling method win, whatever the case of the name:
         # {"Model": ...} from request options must not travel next to {"model": ...}.
         explicit = kwargs.get("headers", {})
