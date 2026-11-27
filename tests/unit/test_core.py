@@ -173,12 +173,13 @@ class TestRequestHeaders:
         wrapper.request("GET", "/x")
         assert seen == [["Bearer other"], [f"Bearer {mock_api_key}"]]
 
-    def test_additional_user_agent_replaces_the_sdk_one(self, mock_api_key):
+    def test_additional_user_agent_is_sent_once_after_the_sdk_one(self, mock_api_key):
         wrapper = ClientWrapper(api_key=mock_api_key)
         headers = wrapper.get_headers({"user-agent": "mine"})
-        assert {k: v for k, v in headers.items() if k.lower() == "user-agent"} == {
-            "user-agent": "mine"
-        }
+        sent = {k: v for k, v in headers.items() if k.lower() == "user-agent"}
+        assert list(sent) == ["User-Agent"]
+        assert sent["User-Agent"].startswith("fish-audio-python/")
+        assert sent["User-Agent"].endswith(" mine")
 
 
 class TestAsyncClientWrapper:
