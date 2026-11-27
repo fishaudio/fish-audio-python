@@ -19,6 +19,7 @@ from fishaudio.core import (
 )
 from fishaudio.core._sse import ServerSentEvent, SSEDecoder
 from fishaudio.core._ws_utils import drain_reader
+from fishaudio.core.client_wrapper import handshake_headers
 from fishaudio.core.iterators import (
     AsyncAudioStream,
     AsyncTTSTimestampStream,
@@ -555,6 +556,7 @@ class TTSClient:
 
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
+        headers = handshake_headers(self._client, model, ws_options)
 
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -563,7 +565,7 @@ class TTSClient:
             with connect_ws(
                 "/v1/tts/live",
                 client=self._client.client,
-                headers=self._client.get_headers({"model": model}),
+                headers=headers,
                 **ws_kwargs,
             ) as ws:
 
@@ -1020,12 +1022,13 @@ class AsyncTTSClient:
 
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
+        headers = handshake_headers(self._client, model, ws_options)
 
         ws: AsyncWebSocketSession
         async with aconnect_ws(
             "/v1/tts/live",
             client=self._client.client,
-            headers=self._client.get_headers({"model": model}),
+            headers=headers,
             **ws_kwargs,
         ) as ws:
 

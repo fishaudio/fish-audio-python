@@ -20,6 +20,7 @@ from fishaudio.exceptions import (
 )
 
 from .request_options import RequestOptions
+from .websocket_options import WebSocketOptions
 
 
 def _api_error(status: int, message: str, body: Optional[str] = None) -> APIError:
@@ -207,6 +208,28 @@ class BaseClientWrapper:
             if isinstance(params, dict):
                 params.update(request_options.additional_query_params)
                 kwargs["params"] = params
+
+
+def handshake_headers(
+    client_wrapper: BaseClientWrapper,
+    model: str,
+    ws_options: Optional[WebSocketOptions],
+) -> httpx.Headers:
+    """Build the headers of a WebSocket handshake.
+
+    ``ws_options.additional_headers`` come first; the SDK's own headers replace
+    any spelling of the same name. The exception is ``User-Agent``, which is
+    appended to the SDK's own, as on HTTP calls.
+    """
+    additional = dict((ws_options.additional_headers if ws_options else None) or {})
+    own = {"model": model}
+    for name in list(additional):
+        if name.lower() == "user-agent":
+            # The last spelling wins, as in get_headers().
+            own["User-Agent"] = additional.pop(name)
+    headers = httpx.Headers(additional)
+    headers.update(client_wrapper.get_headers(own))
+    return headers
 
 
 class ClientWrapper(BaseClientWrapper):

@@ -303,6 +303,39 @@ audio = client.tts.convert(
 | `client.voices` | Voice management | `list()`, `get()`, `create()`, `update()`, `delete()` |
 | `client.account` | Account info | `get_credits()`, `get_package()` |
 
+## Tracing
+
+To continue your trace in the Fish Audio API, send a W3C `traceparent` header on each request. Use one of the ways below; if the OpenTelemetry instrumentation is enabled, it replaces a `traceparent` you set yourself.
+
+**With OpenTelemetry**, enable [`opentelemetry-instrumentation-httpx`](https://pypi.org/project/opentelemetry-instrumentation-httpx/). HTTP calls and the WebSocket handshakes of `tts.stream_websocket()` and `asr.stream_websocket()` then carry the current trace: the same trace id, under a client span that the instrumentation creates. A WebSocket stream connects when you first iterate it, so iterate it inside your span.
+
+```python
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+HTTPXClientInstrumentor().instrument()
+```
+
+**Without OpenTelemetry**, pass the header with each call:
+
+```python
+from fishaudio.core import RequestOptions, WebSocketOptions
+
+headers = {"traceparent": traceparent}
+audio = client.tts.convert(text="Hello!", request_options=RequestOptions(additional_headers=headers))
+stream = client.tts.stream_websocket(text_chunks(), ws_options=WebSocketOptions(additional_headers=headers))
+```
+
+Or give the client an `httpx_client` with a request event hook, which runs for HTTP calls and WebSocket handshakes alike (with `AsyncFishAudio`, use an `httpx.AsyncClient` and an async hook):
+
+```python
+import httpx
+
+def add_traceparent(request):
+    request.headers["traceparent"] = current_traceparent()
+
+client = FishAudio(httpx_client=httpx.Client(base_url="https://api.fish.audio", event_hooks={"request": [add_traceparent]}))
+```
+
 ## Error Handling
 
 ```python
