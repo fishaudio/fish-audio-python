@@ -163,7 +163,7 @@ class BaseClientWrapper:
         casing), or else one set on a user-supplied httpx client, is appended
         to the SDK's own.
         """
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers: dict[str, str] = {"Authorization": f"Bearer {self.api_key}"}
         # Read from the client on every call, so a User-Agent changed on a
         # supplied httpx client after construction is used. The SDK's own
         # client carries USER_AGENT, which user_agent() does not double.
