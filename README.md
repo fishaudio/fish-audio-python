@@ -31,7 +31,7 @@ The official Python library for the Fish Audio API
 pip install fish-audio-sdk
 
 # With audio playback utilities
-pip install fish-audio-sdk[utils]
+pip install "fish-audio-sdk[utils]"
 ```
 
 ## Authentication
@@ -245,13 +245,23 @@ play(audio_stream)
 **Asynchronous:**
 
 ```python
+import asyncio
+from fishaudio import AsyncFishAudio
+
 async def text_chunks():
     yield "Hello, "
     yield "this is "
     yield "streaming!"
 
-audio_stream = await client.tts.stream_websocket(text_chunks(), latency="balanced")
-play(audio_stream)
+async def main():
+    client = AsyncFishAudio()
+    # stream_websocket is an async generator: iterate it, don't await the call
+    audio_stream = client.tts.stream_websocket(text_chunks(), latency="balanced")
+    with open("output.mp3", "wb") as f:
+        async for chunk in audio_stream:
+            f.write(chunk)
+
+asyncio.run(main())
 ```
 
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/websocket)
