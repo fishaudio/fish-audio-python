@@ -8,7 +8,6 @@ from collections.abc import AsyncIterable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union
 
-import httpx
 import ormsgpack
 from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, connect_ws
 
@@ -20,6 +19,7 @@ from fishaudio.core import (
 )
 from fishaudio.core._sse import ServerSentEvent, SSEDecoder
 from fishaudio.core._ws_utils import drain_reader
+from fishaudio.core.client_wrapper import handshake_headers
 from fishaudio.core.iterators import (
     AsyncAudioStream,
     AsyncTTSTimestampStream,
@@ -556,9 +556,7 @@ class TTSClient:
 
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
-        # The SDK's own headers replace any spelling of the same name.
-        headers = httpx.Headers(ws_options.additional_headers if ws_options else None)
-        headers.update(self._client.get_headers({"model": model}))
+        headers = handshake_headers(self._client, model, ws_options)
 
         executor = ThreadPoolExecutor(max_workers=max_workers)
 
@@ -1024,9 +1022,7 @@ class AsyncTTSClient:
 
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
-        # The SDK's own headers replace any spelling of the same name.
-        headers = httpx.Headers(ws_options.additional_headers if ws_options else None)
-        headers.update(self._client.get_headers({"model": model}))
+        headers = handshake_headers(self._client, model, ws_options)
 
         ws: AsyncWebSocketSession
         async with aconnect_ws(

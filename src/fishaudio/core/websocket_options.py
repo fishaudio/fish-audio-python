@@ -25,8 +25,9 @@ class WebSocketOptions:
             from the server until the queue has room available. Default: 512.
         additional_headers: Extra headers to send on the WebSocket handshake, for
             example ``{"traceparent": ...}``. The headers the SDK sets itself
-            (``Authorization``, ``User-Agent``, ``model``) are kept, whatever the
-            casing of a name given here. The dict is not modified.
+            (``Authorization``, ``model``) are kept, whatever the casing of a
+            name given here; a ``User-Agent`` given here is appended to the
+            SDK's own. The dict is not modified.
 
     Note:
         Descriptions of the httpx_ws options adapted from httpx_ws documentation.

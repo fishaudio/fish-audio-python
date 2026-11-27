@@ -3,6 +3,7 @@
 import pytest
 
 from fishaudio.core import WebSocketOptions
+from fishaudio.core.client_wrapper import USER_AGENT
 
 from .realtime_server import WS_PATHS, consume, open_stream, ws_server
 
@@ -38,17 +39,24 @@ def test_sdk_headers_win_over_additional_headers_in_any_casing(path):
     sent = handshake(
         path,
         WebSocketOptions(
-            additional_headers={
-                "AUTHORIZATION": "Bearer other",
-                "Model": "other",
-                "user-agent": "other",
-            }
+            additional_headers={"AUTHORIZATION": "Bearer other", "Model": "other"}
         ),
     )
 
-    for name in ("authorization", "model", "user-agent"):
+    for name in ("authorization", "model"):
         assert values(sent, name) == values(default, name)
     assert values(sent, "authorization") == ["Bearer test-key"]
+
+
+@pytest.mark.parametrize("path", WS_PATHS)
+def test_a_user_agent_in_additional_headers_is_appended_to_the_sdks(path):
+    assert values(handshake(path), "user-agent") == [USER_AGENT]
+
+    sent = handshake(
+        path, WebSocketOptions(additional_headers={"user-agent": "my-app/1.0"})
+    )
+
+    assert values(sent, "user-agent") == [f"{USER_AGENT} my-app/1.0"]
 
 
 @pytest.mark.parametrize("path", WS_PATHS)
