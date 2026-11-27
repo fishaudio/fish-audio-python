@@ -60,6 +60,12 @@ class TestProcessAudioEvent:
         with pytest.raises(WebSocketError, match="WebSocket stream ended with error"):
             _process_audio_event(data)
 
+    def test_error_event_raises_with_server_message(self):
+        """An error event (sent when the server rejects the start event) raises."""
+        data = {"event": "error", "error": 'Invalid language "en us".'}
+        with pytest.raises(WebSocketError, match='Invalid language "en us"'):
+            _process_audio_event(data)
+
     def test_finish_event_with_stop_returns_none(self):
         """Test that finish event with stop reason returns None."""
         data = {"event": "finish", "reason": "stop"}

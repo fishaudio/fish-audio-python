@@ -5,6 +5,7 @@ from typing import get_args
 import pytest
 
 from fishaudio import WebSocketOptions
+from fishaudio.exceptions import WebSocketError
 from fishaudio.types import FlushEvent, Prosody, TextEvent, TTSConfig
 from fishaudio.types.shared import DEPRECATED_MODELS, Model
 
@@ -34,6 +35,21 @@ class TestTTSWebSocketIntegration:
 
         # Save the audio
         save_audio(audio_chunks, "test_websocket_streaming.mp3")
+
+    def test_websocket_streaming_with_language(self, client, save_audio):
+        """Test WebSocket streaming with a language tag for the session."""
+        audio_chunks = list(
+            client.tts.stream_websocket(
+                iter(["La entrada cuesta $300."]), language="es-MX"
+            )
+        )
+        assert len(b"".join(audio_chunks)) > 1000
+        save_audio(audio_chunks, "test_websocket_language_es_mx.mp3")
+
+    def test_websocket_invalid_language_raises(self, client):
+        """The API answers an invalid tag with an error event; the SDK raises it."""
+        with pytest.raises(WebSocketError, match="Invalid language"):
+            list(client.tts.stream_websocket(iter(["Hello"]), language="en US"))
 
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     @pytest.mark.parametrize(

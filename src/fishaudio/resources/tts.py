@@ -4,6 +4,7 @@ import asyncio
 import base64
 import binascii
 import json
+import threading
 from collections.abc import AsyncIterable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union
@@ -43,6 +44,7 @@ from fishaudio.types import (
 )
 from fishaudio.types.shared import warn_if_deprecated_model
 
+from .asr_realtime import _SENDER_CLEANUP_SECONDS, _retrieve_exception
 from .realtime import aiter_websocket_audio, iter_websocket_audio
 
 
@@ -58,6 +60,7 @@ def _config_to_tts_request(config: TTSConfig, text: str) -> TTSRequest:
         references=config.references,
         reference_id=config.reference_id,
         normalize=config.normalize,
+        language=config.language,
         latency=config.latency,
         prosody=config.prosody,
         top_p=config.top_p,
@@ -95,6 +98,7 @@ def _build_tts_payload(
     format: Optional[AudioFormat],
     latency: Optional[LatencyMode],
     speed: Optional[float],
+    language: Optional[str],
 ) -> bytes:
     """Build the MessagePack request body; direct parameters override config."""
     request = _config_to_tts_request(config, text)
@@ -108,6 +112,8 @@ def _build_tts_payload(
         request.latency = latency
     if speed is not None:
         request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
+    if language is not None:
+        request.language = language
     return ormsgpack.packb(request.model_dump(exclude_none=True))
 
 
@@ -144,6 +150,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -158,6 +165,7 @@ class TTSClient:
             format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -200,6 +208,9 @@ class TTSClient:
         if speed is not None:
             request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
 
+        if language is not None:
+            request.language = language
+
         payload = request.model_dump(exclude_none=True)
 
         # Send the request and return once headers arrive; the body is read
@@ -233,6 +244,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -250,6 +262,7 @@ class TTSClient:
             format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -281,6 +294,7 @@ class TTSClient:
             format=format,
             latency=latency,
             speed=speed,
+            language=language,
             config=config,
             model=model,
             request_options=request_options,
@@ -295,6 +309,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -314,6 +329,7 @@ class TTSClient:
                 are uncompressed, which keeps sample positions exact.
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -346,6 +362,7 @@ class TTSClient:
             format=format,
             latency=latency,
             speed=speed,
+            language=language,
         )
 
         # Return once headers arrive; events are read lazily as they are produced.
@@ -380,6 +397,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -399,6 +417,7 @@ class TTSClient:
                 are uncompressed, which keeps sample positions exact.
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -430,6 +449,7 @@ class TTSClient:
             format=format,
             latency=latency,
             speed=speed,
+            language=language,
             config=config,
             model=model,
             request_options=request_options,
@@ -444,6 +464,7 @@ class TTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         max_workers: int = 10,
@@ -461,6 +482,7 @@ class TTSClient:
             format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             max_workers: ThreadPoolExecutor workers for concurrent sender
@@ -553,6 +575,9 @@ class TTSClient:
                 speed, base=config.prosody
             )
 
+        if language is not None:
+            tts_request.language = language
+
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
 
@@ -566,6 +591,7 @@ class TTSClient:
                 headers=self._client.get_headers({"model": model}),
                 **ws_kwargs,
             ) as ws:
+                stopped = threading.Event()
 
                 def sender():
                     ws.send_bytes(
@@ -573,9 +599,12 @@ class TTSClient:
                     )
                     # Normalize strings to TextEvent
                     for item in text_stream:
+                        if stopped.is_set():
+                            return
                         event = _normalize_to_event(item)
                         ws.send_bytes(ormsgpack.packb(event.model_dump()))
-                    ws.send_bytes(ormsgpack.packb(CloseEvent().model_dump()))
+                    if not stopped.is_set():
+                        ws.send_bytes(ormsgpack.packb(CloseEvent().model_dump()))
 
                 sender_future = executor.submit(sender)
 
@@ -585,6 +614,13 @@ class TTSClient:
 
                     sender_future.result()
                 finally:
+                    # If the stream ended early (an error event, a disconnect, or
+                    # the caller stopped reading), stop the sender at its next
+                    # text chunk instead of letting it keep reading text_stream
+                    # and writing to a closed socket. A thread cannot be
+                    # interrupted while text_stream itself blocks.
+                    stopped.set()
+                    sender_future.cancel()
                     # Stop httpx-ws's reader thread before the socket is closed so it
                     # cannot read from a reused fd belonging to the next connection.
                     drain_reader(ws)
@@ -607,6 +643,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -621,6 +658,7 @@ class AsyncTTSClient:
             format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -664,6 +702,9 @@ class AsyncTTSClient:
         if speed is not None:
             request.prosody = Prosody.from_speed_override(speed, base=config.prosody)
 
+        if language is not None:
+            request.language = language
+
         payload = request.model_dump(exclude_none=True)
 
         # Send the request and return once headers arrive; the body is read
@@ -697,6 +738,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -714,6 +756,7 @@ class AsyncTTSClient:
             format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -745,6 +788,7 @@ class AsyncTTSClient:
             format=format,
             latency=latency,
             speed=speed,
+            language=language,
             config=config,
             model=model,
             request_options=request_options,
@@ -760,6 +804,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -779,6 +824,7 @@ class AsyncTTSClient:
                 are uncompressed, which keeps sample positions exact.
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -812,6 +858,7 @@ class AsyncTTSClient:
             format=format,
             latency=latency,
             speed=speed,
+            language=language,
         )
 
         # Return once headers arrive; events are read lazily as they are produced.
@@ -846,6 +893,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
@@ -865,6 +913,7 @@ class AsyncTTSClient:
                 are uncompressed, which keeps sample positions exact.
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             request_options: Request-level overrides
@@ -896,6 +945,7 @@ class AsyncTTSClient:
             format=format,
             latency=latency,
             speed=speed,
+            language=language,
             config=config,
             model=model,
             request_options=request_options,
@@ -911,6 +961,7 @@ class AsyncTTSClient:
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
+        language: Optional[str] = None,
         config: TTSConfig = TTSConfig(),
         model: Union[Model, str] = "s2.1-pro",
         ws_options: Optional[WebSocketOptions] = None,
@@ -927,6 +978,7 @@ class AsyncTTSClient:
             format: Audio format - "mp3", "wav", "pcm", or "opus" (overrides config.format if provided)
             latency: Latency mode - "normal" or "balanced" (overrides config.latency if provided)
             speed: Speech speed multiplier, e.g. 1.5 for 1.5x speed (overrides config.prosody.speed if provided)
+            language: BCP-47 tag of the text, e.g. "es-MX", for text normalization (overrides config.language if provided)
             config: TTS configuration (audio settings, voice, model parameters)
             model: TTS model to use
             ws_options: WebSocket connection options for configuring timeouts, message size limits, etc.
@@ -1018,6 +1070,9 @@ class AsyncTTSClient:
                 speed, base=config.prosody
             )
 
+        if language is not None:
+            tts_request.language = language
+
         # Prepare WebSocket connection kwargs
         ws_kwargs = ws_options.to_httpx_ws_kwargs() if ws_options else {}
 
@@ -1041,8 +1096,19 @@ class AsyncTTSClient:
 
             sender_task = asyncio.create_task(sender())
 
-            # Process incoming audio messages
-            async for audio_chunk in aiter_websocket_audio(ws):
-                yield audio_chunk
+            try:
+                # Process incoming audio messages
+                async for audio_chunk in aiter_websocket_audio(ws):
+                    yield audio_chunk
 
-            await sender_task
+                await sender_task
+            finally:
+                # If the stream ended early (an error event, a disconnect, or the
+                # caller stopped reading), cancel the sender so it does not keep
+                # reading text_stream or write to the closed socket. Bounded, like
+                # the realtime speech-to-text session, so a text_stream whose
+                # cleanup never finishes cannot hold the connection open.
+                if not sender_task.done():
+                    sender_task.cancel()
+                    await asyncio.wait({sender_task}, timeout=_SENDER_CLEANUP_SECONDS)
+                sender_task.add_done_callback(_retrieve_exception)

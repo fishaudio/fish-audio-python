@@ -33,10 +33,16 @@ def _process_audio_event(data: dict[str, Any]) -> Optional[bytes]:
         Audio bytes if audio event, None for unknown events
 
     Raises:
-        WebSocketError: If finish event has error reason
+        WebSocketError: If the server reports an error, either as an error
+            event or as a finish event with reason "error"
     """
     if data.get("event") == "audio":
         return data.get("audio")
+    if data.get("event") == "error":
+        # The server sends this when it rejects the start event (for example an
+        # invalid language tag) and then sends nothing more, so waiting for a
+        # finish event would block forever.
+        raise WebSocketError(f"WebSocket stream failed: {data.get('error')}")
     if data.get("event") == "finish" and data.get("reason") == "error":
         raise WebSocketError("WebSocket stream ended with error")
     return None  # Ignore unknown events

@@ -2,7 +2,14 @@
 
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_serializer,
+    model_serializer,
+)
 
 from .shared import AudioFormat, LatencyMode
 
@@ -65,6 +72,11 @@ class TTSConfig(BaseModel):
         mp3_bitrate: MP3 bitrate in kbps. Options: 64, 128, 192. Default: 128
         opus_bitrate: Opus bitrate in kbps. Options: -1000, 24, 32, 48, 64. Default: 32
         normalize: Whether to normalize/clean the input text. Default: True
+        language: BCP-47 tag of the text's language, such as "en", "es-MX" or "zh-CN".
+            Only changes how text normalization spells out numbers, dates, units
+            and symbols (and word-timestamp alignment); it does not change the
+            voice or accent. Sent as given; the API checks it. Default: None
+            (not sent, the API detects the language of each chunk)
         chunk_length: Characters per generation chunk. Range: 100-300. Default: 200.
             Lower values = faster initial response, higher values = better quality
         latency: Generation mode. Options: "normal" (higher quality), "balanced" (faster). Default: "balanced"
@@ -88,6 +100,7 @@ class TTSConfig(BaseModel):
     mp3_bitrate: Literal[64, 128, 192] = 128
     opus_bitrate: Literal[-1000, 24, 32, 48, 64] = 32
     normalize: bool = True
+    language: Optional[str] = None
 
     # Generation settings
     chunk_length: Annotated[int, Field(ge=100, le=300, strict=True)] = 200
@@ -127,6 +140,8 @@ class TTSRequest(BaseModel):
         references: List of reference audio samples for voice cloning. Default: []
         reference_id: Voice model ID for using a specific voice. Default: None
         normalize: Whether to normalize/clean the input text. Default: True
+        language: BCP-47 tag of the text's language for text normalization.
+            Default: None, which leaves the field out of the request
         latency: Generation mode. Options: "normal", "balanced". Default: "balanced"
         prosody: Speech speed and volume settings. Default: None
         top_p: Nucleus sampling for token selection. Range: 0.0-1.0. Default: 0.7
@@ -147,6 +162,7 @@ class TTSRequest(BaseModel):
     references: list[ReferenceAudio] = []
     reference_id: Optional[str] = None
     normalize: bool = True
+    language: Optional[str] = None
     latency: LatencyMode = "balanced"
     prosody: Optional[Prosody] = None
     top_p: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
@@ -161,6 +177,15 @@ class TTSRequest(BaseModel):
     def _opus_bitrate_bps(self, value: int) -> int:
         # The API takes opus_bitrate in bps (24000, 32000, ...); -1000 means auto.
         return value * 1000 if value > 0 else value
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_language(self, handler: SerializerFunctionWrapHandler) -> dict:
+        # An unset language must not reach the API as null, including in the
+        # WebSocket start event, which is serialized without exclude_none.
+        data = handler(self)
+        if self.language is None:
+            data.pop("language", None)
+        return data
 
 
 # WebSocket event types for streaming TTS
