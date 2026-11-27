@@ -154,19 +154,26 @@ class BaseClientWrapper:
     ) -> dict[str, str]:
         """Build headers including authentication and user agent.
 
-        A ``User-Agent`` in ``additional_headers`` (any casing), or else one set
-        on a user-supplied httpx client, is appended to the SDK's own.
+        A name in ``additional_headers`` replaces the SDK's header of that
+        name whatever its case, so the two are never sent side by side. The
+        exception is ``User-Agent``: one in ``additional_headers`` (any
+        casing), or else one set on a user-supplied httpx client, is appended
+        to the SDK's own.
         """
         headers = {"Authorization": f"Bearer {self.api_key}"}
         # Read from the client on every call, so a User-Agent changed on a
         # supplied httpx client after construction is used. The SDK's own
         # client carries USER_AGENT, which user_agent() does not double.
         caller = _caller_user_agent(getattr(self, "_client", None))
+        extra = {}
         for name, value in (additional_headers or {}).items():
             if name.lower() == "user-agent":
                 caller = value
             else:
-                headers[name] = value
+                extra[name] = value
+        replaced = {name.lower() for name in extra}
+        headers = {k: v for k, v in headers.items() if k.lower() not in replaced}
+        headers.update(extra)
         headers["User-Agent"] = user_agent(caller)
         return headers
 
