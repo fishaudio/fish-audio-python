@@ -33,6 +33,7 @@ class _Stop(Exception):
 def _sync_wrapper() -> Mock:
     wrapper = Mock(spec=ClientWrapper)
     wrapper.client = Mock()
+    wrapper.get_headers.return_value = {}
     wrapper.request.side_effect = _Stop()
     return wrapper
 
@@ -40,6 +41,7 @@ def _sync_wrapper() -> Mock:
 def _async_wrapper() -> Mock:
     wrapper = Mock(spec=AsyncClientWrapper)
     wrapper.client = Mock()
+    wrapper.get_headers.return_value = {}
     wrapper.request.side_effect = _Stop()
     return wrapper
 
