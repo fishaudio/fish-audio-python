@@ -215,6 +215,7 @@ class TestTTSClient:
         assert len(payload["references"]) == 1
         assert payload["references"][0]["text"] == "Param"
 
+    @pytest.mark.filterwarnings("ignore::FutureWarning")
     def test_convert_with_different_backend(self, tts_client, mock_client_wrapper):
         """Test TTS with different backend/model."""
         mock_response = Mock()

@@ -176,12 +176,15 @@ with client.tts.stream_with_timestamps(text="Long content...", format="opus") as
 
 Text without words (only punctuation, or a sound tag such as `[sigh]`) still produces audio, but the API has no timings for it: `segments` is then empty and `result.duration` is `None`.
 
+`s1` and `transcribe-1` are deprecated and will be retired on December 31, 2026. After that date, requests that specify them are served by `s2.1-pro` and `transcribe-1-pro`. Using a deprecated model emits a `FutureWarning`; with Python's default warning filters it is shown once per calling line. See [Model Deprecations](https://docs.fish.audio/developer-guide/models-pricing/deprecations).
+
 [Learn more](https://docs.fish.audio/developer-guide/sdk-guide/python/text-to-speech)
 
 ### Speech-to-Text
 
 ```python
-# transcribe-1-pro is the recommended model; without model, the request runs on transcribe-1.
+# transcribe-1-pro is the recommended model; without model, the request runs on transcribe-1,
+# which is deprecated and will be retired on December 31, 2026.
 with open("meeting.wav", "rb") as f:
     result = client.asr.transcribe(audio=f.read(), model="transcribe-1-pro")
 
