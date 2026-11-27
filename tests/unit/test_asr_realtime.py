@@ -22,6 +22,7 @@ from fishaudio import (
     FishAudio,
     WebSocketError,
 )
+from fishaudio.core.client_wrapper import USER_AGENT
 from fishaudio.resources import asr_realtime
 from fishaudio.resources.asr import _realtime_config
 from fishaudio.resources.asr_realtime import (
@@ -397,6 +398,7 @@ class TestSyncSession:
         assert conn.path == "/v1/asr/realtime"
         assert conn.headers["authorization"] == "Bearer test-key"
         assert conn.headers["model"] == "transcribe-stream-1"
+        assert conn.headers["user-agent"] == USER_AGENT
         assert conn.received == [
             {
                 "type": "config",

@@ -176,6 +176,39 @@ class TestRequestHeaders:
         assert kwargs["headers"]["Model"] == "transcribe-1-pro"
         assert kwargs["headers"]["Authorization"] == f"Bearer {mock_api_key}"
 
+    @pytest.mark.parametrize(
+        "name", ["authorization", "AUTHORIZATION", "Authorization"]
+    )
+    def test_additional_header_replaces_the_sdk_header_of_other_case(
+        self, mock_api_key, name
+    ):
+        # Sent through httpx, which would send two spellings as two headers.
+        seen = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request.headers.get_list("authorization"))
+            return httpx.Response(200, json={})
+
+        http = httpx.Client(
+            base_url="https://api.test", transport=httpx.MockTransport(handler)
+        )
+        wrapper = ClientWrapper(api_key=mock_api_key, httpx_client=http)
+        wrapper.request(
+            "GET",
+            "/x",
+            request_options=RequestOptions(additional_headers={name: "Bearer other"}),
+        )
+        wrapper.request("GET", "/x")
+        assert seen == [["Bearer other"], [f"Bearer {mock_api_key}"]]
+
+    def test_additional_user_agent_is_sent_once_after_the_sdk_one(self, mock_api_key):
+        wrapper = ClientWrapper(api_key=mock_api_key)
+        headers = wrapper.get_headers({"user-agent": "mine"})
+        sent = {k: v for k, v in headers.items() if k.lower() == "user-agent"}
+        assert list(sent) == ["User-Agent"]
+        assert sent["User-Agent"].startswith("fish-audio-python/")
+        assert sent["User-Agent"].endswith(" mine")
+
 
 class TestAsyncClientWrapper:
     """Test async AsyncClientWrapper."""
