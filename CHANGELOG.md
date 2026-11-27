@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.7.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.6.0...fish-audio-sdk-v1.7.0) (2026-11-27)
+
+
+### Features
+
+* send User-Agent fish-audio-python/&lt;version&gt; and append a caller's value ([#182](https://github.com/fishaudio/fish-audio-python/issues/182)) ([913f417](https://github.com/fishaudio/fish-audio-python/commit/913f417a8e219df29340325e6c42b68aeea982c1))
+
+
+### Bug Fixes
+
+* a per-call header replaces the SDK's header whatever its case ([#187](https://github.com/fishaudio/fish-audio-python/issues/187)) ([6156ed1](https://github.com/fishaudio/fish-audio-python/commit/6156ed1eb475f78849119bfd1fb6b8718aec8f9c))
+* annotate the headers dict so the type check passes ([#192](https://github.com/fishaudio/fish-audio-python/issues/192)) ([bcae77a](https://github.com/fishaudio/fish-audio-python/commit/bcae77a8b9a069116972d76c462c8b3190441ac1))
+* ignore whitespace around the API key ([#189](https://github.com/fishaudio/fish-audio-python/issues/189)) ([afb406a](https://github.com/fishaudio/fish-audio-python/commit/afb406aac3234ea845a8fa3ba0302346f86c3728))
+
+
+### Documentation
+
+* fix the async realtime example in the README ([#193](https://github.com/fishaudio/fish-audio-python/issues/193)) ([919cf78](https://github.com/fishaudio/fish-audio-python/commit/919cf7881c0aa8c4cd8d3073582d6929bd00718e))
+
 ## [1.6.0](https://github.com/fishaudio/fish-audio-python/compare/fish-audio-sdk-v1.5.0...fish-audio-sdk-v1.6.0) (2026-11-25)
 
 
