@@ -108,6 +108,12 @@ drama_audio = client.tts.convert(
     text="Expressive speech",
     model="drama-3",
 )
+
+# S3 Pro
+s3_audio = client.tts.convert(
+    text="S3 Pro speech",
+    model="s3-pro",
+)
 ```
 
 **With custom voice:**
