@@ -221,10 +221,13 @@ def handshake_headers(
     any spelling of the same name. The exception is ``User-Agent``, which is
     appended to the SDK's own, as on HTTP calls.
     """
-    headers = httpx.Headers(ws_options.additional_headers if ws_options else None)
+    additional = dict((ws_options.additional_headers if ws_options else None) or {})
     own = {"model": model}
-    if "user-agent" in headers:
-        own["User-Agent"] = headers["user-agent"]
+    for name in list(additional):
+        if name.lower() == "user-agent":
+            # The last spelling wins, as in get_headers().
+            own["User-Agent"] = additional.pop(name)
+    headers = httpx.Headers(additional)
     headers.update(client_wrapper.get_headers(own))
     return headers
 
