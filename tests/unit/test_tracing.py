@@ -16,6 +16,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 
 from fishaudio import AsyncFishAudio, FishAudio
+from fishaudio.core import RequestOptions, WebSocketOptions
 
 from .realtime_server import WS_PATHS, consume, open_stream, ws_server
 
@@ -158,3 +159,30 @@ def test_request_hook_reaches_handshakes(path):
         consume(open_stream(client, path))
 
     assert values(server.stop().header_list, "traceparent") == ["from-hook"]
+
+
+MANUAL = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+
+
+@pytest.mark.parametrize("path", WS_PATHS)
+def test_instrumentation_replaces_a_traceparent_set_by_hand_on_a_handshake(
+    tracer, path
+):
+    options = WebSocketOptions(additional_headers={"traceparent": MANUAL})
+    with ws_server(path) as (server, client), tracer.start_as_current_span("x") as span:
+        consume(open_stream(client, path, options))
+
+    [traceparent] = values(server.stop().header_list, "traceparent")
+    assert trace_id(traceparent) == span.get_span_context().trace_id
+
+
+def test_instrumentation_replaces_a_traceparent_set_by_hand_on_an_http_call(
+    tracer, http_server
+):
+    client = sdk_client(http_server.url, False)
+    options = RequestOptions(additional_headers={"traceparent": MANUAL})
+    with tracer.start_as_current_span("request") as span:
+        client.tts.convert(text="hi", request_options=options)
+
+    [traceparent] = values(http_server.requests[0], "traceparent")
+    assert trace_id(traceparent) == span.get_span_context().trace_id
