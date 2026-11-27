@@ -325,6 +325,20 @@ except FishAudioError as e:
     print(f"API error: {e}")
 ```
 
+### Trace IDs
+
+Responses to speech and transcription requests carry an `x-fish-trace-id` header. Include it when you contact support about a request, also one that succeeded but sounds wrong. What a call returns has the response headers:
+
+```python
+stream = client.tts.stream(text="Hello!")
+try:
+    audio = stream.collect()
+finally:
+    trace_id = stream.headers.get("x-fish-trace-id")  # None if not sent
+```
+
+The same `headers` attribute is on the streams of `tts.stream_with_timestamps()` and `asr.stream_websocket()` (empty until the connection opens on the first iteration), and on the results of `tts.convert_with_timestamps()` and `asr.transcribe()` (the latter also has `request_id`). `tts.convert()` returns only the audio; use `tts.stream()` as above when you need the headers. `tts.stream_websocket()` does not expose them yet.
+
 ## Resources
 
 - **Documentation:** [SDK Guide](https://docs.fish.audio/developer-guide/sdk-guide/python/) | [API Reference](https://docs.fish.audio/api-reference/sdk/python/)

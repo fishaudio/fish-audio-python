@@ -2,9 +2,10 @@
 
 from typing import Annotated, Literal, Optional
 
+import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-from .shared import AudioFormat, LatencyMode
+from .shared import AudioFormat, LatencyMode, get_response_headers
 
 
 class ReferenceAudio(BaseModel):
@@ -311,3 +312,11 @@ class TTSTimestampResult(BaseModel):
     audio: bytes
     segments: list[TTSTimestampSegment]
     duration: Optional[float] = None
+
+    @property
+    def headers(self) -> httpx.Headers:
+        """Headers of the HTTP response, for example ``x-fish-trace-id``.
+
+        Empty on a model that was not returned by the client.
+        """
+        return get_response_headers(self)

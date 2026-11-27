@@ -38,6 +38,10 @@ class ClientGone(Exception):
     """The client closed the connection."""
 
 
+# Sent with every accepted handshake, as the API does.
+ACCEPT_HEADERS = [(b"x-fish-trace-id", b"trace-123")]
+
+
 class Connection:
     """One client connection, as seen by a server script."""
 
@@ -72,7 +76,7 @@ class Connection:
                 if self._reject_status is not None:
                     self._write(RejectConnection(status_code=self._reject_status))
                     raise ClientGone
-                self._write(AcceptConnection())
+                self._write(AcceptConnection(extra_headers=ACCEPT_HEADERS))
             elif isinstance(event, BytesMessage):
                 self._partial += bytes(event.data)
                 if event.message_finished:

@@ -2,7 +2,10 @@
 
 from typing import Optional
 
+import httpx
 from pydantic import BaseModel
+
+from .shared import get_response_headers
 
 
 class ASRSegment(BaseModel):
@@ -55,3 +58,11 @@ class ASRResponse(BaseModel):
     language_code: Optional[str] = None
     request_id: Optional[str] = None
     speaker_turns: Optional[list[SpeakerTurn]] = None
+
+    @property
+    def headers(self) -> httpx.Headers:
+        """Headers of the HTTP response, for example ``x-fish-trace-id``.
+
+        Empty on a model that was not returned by the client.
+        """
+        return get_response_headers(self)

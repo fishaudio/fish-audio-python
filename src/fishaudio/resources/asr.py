@@ -23,6 +23,7 @@ from fishaudio.types import (
     ASRTurnDetection,
     TurnDetectionMode,
 )
+from fishaudio.types.shared import set_response_headers
 
 from .asr_realtime import REALTIME_PATH, ASRRealtimeStream, AsyncASRRealtimeStream
 
@@ -127,7 +128,9 @@ class ASRClient:
         )
 
         # Parse and return response
-        return ASRResponse.model_validate(response.json())
+        result = ASRResponse.model_validate(response.json())
+        set_response_headers(result, response.headers)
+        return result
 
     def stream_websocket(
         self,
@@ -314,7 +317,9 @@ class AsyncASRClient:
         )
 
         # Parse and return response
-        return ASRResponse.model_validate(response.json())
+        result = ASRResponse.model_validate(response.json())
+        set_response_headers(result, response.headers)
+        return result
 
     def stream_websocket(
         self,

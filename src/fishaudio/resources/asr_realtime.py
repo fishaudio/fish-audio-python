@@ -136,6 +136,12 @@ def _upgrade_error(response: httpx.Response) -> Exception:
     return _api_error(status, httpx.codes.get_reason_phrase(status) or "Upgrade failed")
 
 
+def _handshake_headers(
+    ws: Union[WebSocketSession, AsyncWebSocketSession],
+) -> httpx.Headers:
+    return httpx.Headers(getattr(ws.response, "headers", None))
+
+
 class _Protocol:
     """Turns server messages and closes into events or exceptions (sync and async)."""
 
@@ -198,6 +204,7 @@ class _Link:
         self._ws: Optional[WebSocketSession] = None
         self._lock = threading.Lock()
         self.closed = False
+        self.headers = httpx.Headers()  # of the handshake response, once connected
 
     def open(self, ws: WebSocketSession) -> None:
         with self._lock:
@@ -266,6 +273,7 @@ def _iter_session(
     drain_until: Optional[float] = None
     try:
         with connect() as ws:
+            link.headers = _handshake_headers(ws)
             try:
                 try:
                     ws.send_bytes(config)
@@ -364,6 +372,15 @@ class ASRRealtimeStream:
             self._link, connect, encode_config(config), audio_stream
         )
 
+    @property
+    def headers(self) -> httpx.Headers:
+        """Headers of the handshake response, for example ``x-fish-trace-id``.
+
+        Empty until the connection opens on the first iteration; still
+        readable after the session has ended or failed.
+        """
+        return self._link.headers
+
     def __iter__(self) -> Iterator[ASRRealtimeEvent]:
         return self
 
@@ -425,6 +442,7 @@ class _AsyncLink:
 
     def __init__(self) -> None:
         self._ws: Optional[AsyncWebSocketSession] = None
+        self.headers = httpx.Headers()  # of the handshake response, once connected
 
     def open(self, ws: AsyncWebSocketSession) -> None:
         self._ws = ws
@@ -502,6 +520,7 @@ async def _run_session(
     error: Optional[BaseException] = None
     try:
         async with connect() as ws:
+            link.headers = _handshake_headers(ws)
             try:
                 try:
                     await ws.send_bytes(config)
@@ -621,6 +640,15 @@ class AsyncASRRealtimeStream:
         self._getter: Optional[asyncio.Future[Union[ASRRealtimeEvent, _End]]] = None
         self._reading = False
         self._finished = False
+
+    @property
+    def headers(self) -> httpx.Headers:
+        """Headers of the handshake response, for example ``x-fish-trace-id``.
+
+        Empty until the connection opens on the first iteration; still
+        readable after the session has ended or failed.
+        """
+        return self._link.headers
 
     def __aiter__(self) -> AsyncASRRealtimeStream:
         return self
