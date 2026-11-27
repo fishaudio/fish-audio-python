@@ -34,6 +34,13 @@ SESSION_STARTED = {
 }
 
 
+# Sent with every refused handshake, as the API does.
+REJECT_HEADERS = [
+    (b"x-fish-trace-id", b"trace-123"),
+    (b"x-fish-error-code", b"invalid_api_key"),
+]
+
+
 class ClientGone(Exception):
     """The client closed the connection."""
 
@@ -70,7 +77,11 @@ class Connection:
                 self.path = event.target
                 self.headers = {k.decode(): v.decode() for k, v in event.extra_headers}
                 if self._reject_status is not None:
-                    self._write(RejectConnection(status_code=self._reject_status))
+                    self._write(
+                        RejectConnection(
+                            status_code=self._reject_status, headers=REJECT_HEADERS
+                        )
+                    )
                     raise ClientGone
                 self._write(AcceptConnection())
             elif isinstance(event, BytesMessage):

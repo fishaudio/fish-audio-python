@@ -133,7 +133,11 @@ def _upgrade_error(response: httpx.Response) -> Exception:
     """The WebSocket upgrade was refused (401, 402, 429, ...): map the HTTP status."""
     status = response.status_code
     # httpx-ws closes the response before the body can be read.
-    return _api_error(status, httpx.codes.get_reason_phrase(status) or "Upgrade failed")
+    return _api_error(
+        status,
+        httpx.codes.get_reason_phrase(status) or "Upgrade failed",
+        headers=response.headers,
+    )
 
 
 class _Protocol:

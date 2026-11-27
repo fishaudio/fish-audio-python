@@ -698,6 +698,8 @@ class TestSyncSession:
         ):
             list(client.asr.stream_websocket(iter([CHUNK])))
         assert exc_info.value.status == status
+        assert exc_info.value.headers["x-fish-trace-id"] == "trace-123"
+        assert exc_info.value.headers["x-fish-error-code"] == "invalid_api_key"
 
     def test_leaving_the_loop_early_closes_the_connection(self):
         with serving(open_ended_script) as (server, client):
@@ -1078,6 +1080,8 @@ class TestAsyncSession:
                 async for _ in client.asr.stream_websocket(aiter_chunks(CHUNK)):
                     pass
         assert exc_info.value.status == status
+        assert exc_info.value.headers["x-fish-trace-id"] == "trace-123"
+        assert exc_info.value.headers["x-fish-error-code"] == "invalid_api_key"
 
     async def test_leaving_the_loop_early_closes_the_connection(self):
         async with aserving(open_ended_script) as (server, client):

@@ -1,6 +1,9 @@
 """Custom exceptions for the Fish Audio SDK."""
 
+from collections.abc import Mapping
 from typing import Optional
+
+import httpx
 
 
 class FishAudioError(Exception):
@@ -10,12 +13,26 @@ class FishAudioError(Exception):
 
 
 class APIError(FishAudioError):
-    """Raised when the API returns an error response."""
+    """Raised when the API returns an error response.
 
-    def __init__(self, status: int, message: str, body: Optional[str] = None):
+    Attributes:
+        status: HTTP status code
+        message: Error message from the response
+        body: Response body, if it was read
+        headers: Headers of the error response (empty if there are none)
+    """
+
+    def __init__(
+        self,
+        status: int,
+        message: str,
+        body: Optional[str] = None,
+        headers: Optional[Mapping[str, str]] = None,
+    ):
         self.status = status
         self.message = message
         self.body = body
+        self.headers = httpx.Headers(headers)
         super().__init__(f"HTTP {status}: {message}")
 
 

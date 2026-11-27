@@ -325,6 +325,19 @@ except FishAudioError as e:
     print(f"API error: {e}")
 ```
 
+Every `APIError` carries the headers of the error response. When you contact support, include the trace id and the error code. Either can be absent.
+
+```python
+from fishaudio.exceptions import APIError
+
+try:
+    audio = client.tts.convert(text="Hello!")
+except APIError as e:
+    print(e.headers.get("x-fish-trace-id"), e.headers.get("x-fish-error-code"))
+```
+
+A refused `tts.stream_websocket` connection raises `httpx_ws.WebSocketUpgradeError`; read the same headers from `e.response.headers`.
+
 ## Resources
 
 - **Documentation:** [SDK Guide](https://docs.fish.audio/developer-guide/sdk-guide/python/) | [API Reference](https://docs.fish.audio/api-reference/sdk/python/)
